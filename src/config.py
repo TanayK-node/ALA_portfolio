@@ -1,0 +1,55 @@
+"""Central configuration: tickers, dates, windows, seeds, thresholds.
+
+Every tunable choice in the project lives here so the README can point to a
+single place. Nothing in this file is a *result*; all result numbers come from
+running the pipeline.
+"""
+from __future__ import annotations
+
+from datetime import date, timedelta
+from pathlib import Path
+
+# ----------------------------------------------------------------- paths
+ROOT: Path = Path(__file__).resolve().parent.parent
+DATA_DIR: Path = ROOT / "data"
+RESULTS_DIR: Path = ROOT / "results"
+PRICES_CSV: Path = DATA_DIR / "prices.csv"
+
+# --------------------------------------------------------------- universe
+# 30 liquid Nifty 50 large caps (Yahoo Finance NSE symbols).
+TICKERS: list[str] = [
+    "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
+    "HINDUNILVR.NS", "ITC.NS", "SBIN.NS", "BHARTIARTL.NS", "KOTAKBANK.NS",
+    "LT.NS", "AXISBANK.NS", "ASIANPAINT.NS", "MARUTI.NS", "SUNPHARMA.NS",
+    "TITAN.NS", "BAJFINANCE.NS", "NESTLEIND.NS", "ULTRACEMCO.NS", "WIPRO.NS",
+    "HCLTECH.NS", "NTPC.NS", "POWERGRID.NS", "ONGC.NS", "TATASTEEL.NS",
+    "M&M.NS", "TECHM.NS", "COALINDIA.NS", "DRREDDY.NS", "CIPLA.NS",
+]
+
+# ------------------------------------------------------------------ dates
+# Start ~5 years before today (a *default*: once data/prices.csv exists the
+# cache is used as-is, so later runs are reproducible regardless of today's date).
+END_DATE: date = date.today()
+START_DATE: date = END_DATE - timedelta(days=5 * 365)
+
+# --------------------------------------------------------- data cleaning
+MAX_MISSING_FRAC: float = 0.05   # drop a ticker if > 5% of its prices are NaN
+FFILL_LIMIT: int = 3             # forward-fill gaps of at most 3 trading days
+MASK_FRACS: list[float] = [0.05, 0.10, 0.20]  # missing-data experiment levels
+
+# ---------------------------------------------------- linear-algebra knobs
+INERTIA_TOL: float = 1e-10       # relative: eigenvalue "zero" if |l| <= tol*max|l|
+CLIP_EPS: float = 1e-6           # floor for eigenvalue clipping (daily-return units)
+RANK_RCOND: float = 1e-10        # rank cutoff for pseudo-inverse (relative to lmax)
+BOTTOM_K: list[int] = [1, 3, 5]  # k for noise_exposure_score
+
+# ---------------------------------------------------------- backtest setup
+WINDOWS: list[int] = [60, 90, 120, 250, 500, 750]
+HORIZON: int = 60                # out-of-sample days after each training window
+STEP: int = 60                   # roll step; = HORIZON gives non-overlapping OOS blocks
+TRADING_DAYS: int = 252          # annualisation: std * sqrt(252) (log returns)
+LONG_ONLY_MAX_ITER: int = 500
+
+# -------------------------------------------------------------- randomness
+SEED: int = 42
+N_SEEDS: int = 20                # seeds for broken-Sigma scenarios
