@@ -71,3 +71,11 @@ PHASE5_DIR: Path = RESULTS_DIR / "phase5"
 BOOT_BLOCK: int = 3              # moving-block length, in OOS periods
 BOOT_N: int = 2000               # bootstrap replications
 BOOT_ALPHA: float = 0.05         # 95% percentile intervals
+
+# --- 5B theory / Monte Carlo. Tolerances are fixed BEFORE any simulation is run. ---
+MC_SIMS: int = 10000             # simulated (train, test) pairs per window and scenario
+MC_SHRINK: float = 0.5           # true Sigma = (1-d)*S_full + d*tr(S_full)/N*I
+MC_T_DF: int = 5                 # degrees of freedom of the Student-t scenario
+MC_Z_TOL: float = 3.0            # "matches" = |MC mean - theory| <= 3 Monte Carlo standard errors
+MC_KS_ALPHA: float = 0.01        # exact-distribution KS check flags a mismatch if p < 0.01
+THEORY_DRAWS: int = 400_000      # draws from the exact chi-square representation

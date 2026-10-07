@@ -270,6 +270,47 @@ def fig_common_oos_realized(summary_ci: pd.DataFrame, out_dir: Path,
     return _save(fig, name, out_dir)
 
 
+def fig_theory_vs_empirical(table: pd.DataFrame, out_dir: Path,
+                            name: str = "fig_theory_vs_empirical.png") -> Path:
+    """P5-B. Left: Wishart theory vs Gaussian Monte Carlo (variance / true GMV variance V).
+    Right: realised/predicted risk ratio: exact theory, three simulations, measured data."""
+    _style()
+    x = np.arange(len(table))
+    T = table.window.to_numpy()
+    blue, orange, aqua, yellow = (METHOD_COLOR[k] for k in ("raw", "clipped", "mp", "ledoit_wolf"))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
+    ax = axes[0]
+    for col, mcol, ls, lab in (("th_true_var_over_V", "mc_gaussian_true_var_over_V", "-", "true variance of w-hat (out-of-sample)"),
+                               ("th_pred_var_over_V", "mc_gaussian_pred_var_over_V", "--", "predicted variance (in-sample)")):
+        ax.plot(x, table[col], color=INK, ls=ls, lw=1.6, label=f"theory: {lab}")
+        ax.errorbar(x, table[mcol], yerr=table[mcol + "_se"] * 3, color=blue, marker="o", ls="none",
+                    capsize=2, label=f"Gaussian MC ±3 SE ({'upper' if 'true' in lab else 'lower'} curve)")
+    ax.axhline(1.0, color=INK2, lw=0.8)
+    ax.set_xticks(x, [str(int(t)) for t in T])
+    ax.set_xlabel("training window T (days)")
+    ax.set_ylabel("expected variance / true GMV variance V")
+    ax.set_title("Wishart theory vs Gaussian simulation (N = %d)" % int(table.N.iloc[0]))
+    ax.legend(fontsize=7.5, loc="upper right")
+    ax = axes[1]
+    ax.plot(x, table.th_std_ratio, color=INK, lw=1.8, label="theory (Gaussian, exact representation)")
+    for k, (scen, col, mk, lab, off) in enumerate((("gaussian", blue, "o", "MC Gaussian", -0.12),
+                                                   ("student_t", orange, "s", f"MC Student-t (df={config.MC_T_DF})", -0.04),
+                                                   ("bootstrap", aqua, "^", "MC bootstrap of real returns", 0.04))):
+        ax.errorbar(x + off, table[f"mc_{scen}_std_ratio"], yerr=3 * table[f"mc_{scen}_std_ratio_se"],
+                    color=col, marker=mk, ls="none", capsize=2, label=lab)
+    err = np.vstack([table.emp_std_ratio - table.emp_std_ratio_lo, table.emp_std_ratio_hi - table.emp_std_ratio])
+    ax.errorbar(x + 0.12, table.emp_std_ratio, yerr=err, color=yellow, marker="D", ls="none", capsize=2,
+                label="measured (common OOS, raw, 95% block bootstrap)")
+    ax.axhline(1.0, color=INK2, lw=0.8)
+    ax.set_xticks(x, [str(int(t)) for t in T])
+    ax.set_xlabel("training window T (days)")
+    ax.set_ylabel("realised / predicted risk (std)")
+    ax.set_title("Realised/predicted risk ratio, unconstrained raw GMV")
+    ax.legend(fontsize=7.5, loc="upper right")
+    fig.tight_layout()
+    return _save(fig, name, out_dir)
+
+
 def make_all(returns: pd.DataFrame, runs: pd.DataFrame, expo: pd.DataFrame,
              summary: pd.DataFrame, out_dir: Path = config.RESULTS_DIR) -> list[Path]:
     """Render all figures; returns the written paths."""

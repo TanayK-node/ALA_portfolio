@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from . import config, evaluate, plots, uncertainty
@@ -50,3 +51,52 @@ def print_design_comparison(cmp_: pd.DataFrame) -> None:
         t.insert(1, "n_new", c[c.method == "raw"].set_index("window").n_new)
         print(f"\nMean risk gap (pts), {cons}: per-window OOS (old) vs common OOS (new)")
         print(t.round(2).to_string())
+
+
+def run_5b(returns: pd.DataFrame, common_runs: pd.DataFrame, out_dir: Path | None = None,
+           n_sims: int = config.MC_SIMS) -> dict:
+    """5B: theory vs Monte Carlo (Gaussian / Student-t / bootstrap) vs the measured backtest.
+
+    Empirical points use the raw, unconstrained portfolios of the common-OOS backtest, with
+    moving-block bootstrap intervals over OOS periods. Writes theory_vs_empirical.csv,
+    theory_mc_checks.csv and the figure.
+    """
+    from . import bootstrap, simulate, theory  # local import keeps module import light
+
+    out = _out(out_dir)
+    Sigma = simulate.true_sigma(returns)
+    N = Sigma.shape[0]
+    th = theory.theory_table(N)
+    pool = returns.to_numpy()
+    wide, checks = [], []
+    emp = common_runs[(common_runs.method == "raw") & (common_runs.constraint == "unconstrained")]
+    for i, row in th.iterrows():
+        W = int(row.window)
+        rec = row.to_dict()
+        for k, scen in enumerate(simulate.SCENARIOS):
+            sim = simulate.simulate_gmv(Sigma, W, scen, n_sims, seed=config.SEED + 100 * k + W, pool=pool)
+            for name, (m, se) in simulate.summarize_sim(sim).items():
+                rec[f"mc_{scen}_{name}"], rec[f"mc_{scen}_{name}_se"] = m, se
+            if scen == "gaussian":
+                checks += simulate.gaussian_checks(sim, N, W, row)
+        e = emp[emp.window == W].sort_values("origin")
+        ratio = (e.realized_risk / e.predicted_risk).to_numpy()
+        ci = bootstrap.mean_ci(ratio)
+        rec.update(emp_n_periods=len(e), emp_std_ratio=ci.mean, emp_std_ratio_lo=ci.lo,
+                   emp_std_ratio_hi=ci.hi, emp_var_ratio_per_run=float(np.mean(ratio ** 2)))
+        wide.append(rec)
+    table, chk = pd.DataFrame(wide), pd.DataFrame(checks)
+    # Post-hoc DIAGNOSTIC (labelled; excluded from the pass/fail tally): the recalled offset -2 form.
+    alt = []
+    for _, r in table.iterrows():
+        v = theory.true_variance_ratio_mean_recalled(N, int(r.window))
+        se = r.mc_gaussian_true_var_over_V_se
+        alt.append(dict(window=int(r.window), quantity="true_var_over_V (recalled -2 offset)",
+                        tier="recalled-diagnostic", theory=v, mc_mean=r.mc_gaussian_true_var_over_V,
+                        mc_se=se, z=(r.mc_gaussian_true_var_over_V - v) / se,
+                        ok=bool(abs((r.mc_gaussian_true_var_over_V - v) / se) <= config.MC_Z_TOL), ks_p=np.nan))
+    chk = pd.concat([chk, pd.DataFrame(alt)], ignore_index=True)
+    table.to_csv(out / "theory_vs_empirical.csv", index=False)
+    chk.to_csv(out / "theory_mc_checks.csv", index=False)
+    fig = plots.fig_theory_vs_empirical(table, out)
+    return dict(table=table, checks=chk, figure=fig, sigma_cond=float(np.linalg.cond(Sigma)))
