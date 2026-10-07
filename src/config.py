@@ -39,7 +39,11 @@ MASK_FRACS: list[float] = [0.05, 0.10, 0.20]  # missing-data experiment levels
 
 # ---------------------------------------------------- linear-algebra knobs
 INERTIA_TOL: float = 1e-10       # relative: eigenvalue "zero" if |l| <= tol*max|l|
-CLIP_EPS: float = 1e-6           # floor for eigenvalue clipping (daily-return units)
+CLIP_EPS: float = 1e-6           # absolute floor for clip_eigenvalues (daily-return units)
+# Backtest clipping floor is *relative*: eps = CLIP_REL * tr(S)/N (10% of the average
+# eigenvalue). An absolute 1e-6 is below every sample eigenvalue once T > N, so it would
+# make "clipped" identical to "raw". Chosen a priori, not tuned.
+CLIP_REL: float = 0.10
 RANK_RCOND: float = 1e-10        # rank cutoff for pseudo-inverse (relative to lmax)
 BOTTOM_K: list[int] = [1, 3, 5]  # k for noise_exposure_score
 
@@ -49,6 +53,8 @@ HORIZON: int = 60                # out-of-sample days after each training window
 STEP: int = 60                   # roll step; = HORIZON gives non-overlapping OOS blocks
 TRADING_DAYS: int = 252          # annualisation: std * sqrt(252) (log returns)
 LONG_ONLY_MAX_ITER: int = 500
+METHODS: tuple[str, ...] = ("raw", "clipped", "mp", "ledoit_wolf")
+CONSTRAINTS: tuple[str, ...] = ("unconstrained", "long_only")
 
 # -------------------------------------------------------------- randomness
 SEED: int = 42
