@@ -20,7 +20,7 @@ import logging
 
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr
+from scipy.stats import pearsonr, spearmanr
 
 from . import config
 from .covariance import ledoit_wolf_cov, sample_cov
@@ -125,25 +125,52 @@ def summarize(runs: pd.DataFrame) -> pd.DataFrame:
     return out.reset_index()
 
 
+def _within_window_corr(sub: pd.DataFrame, col: str) -> tuple[int, float, float]:
+    """Pooled within-window rank correlation (removes window-length effects).
+
+    Within each window, replace both variables by their percentile ranks
+    (rank / n, average ties) so every window contributes on the same [0, 1]
+    scale and any window-level shift in either variable is removed; then take
+    the Pearson correlation of the pooled percentile ranks (= a Spearman
+    correlation stratified by window). The p-value treats runs as independent,
+    which they are not (overlapping training windows), so it is optimistic.
+    """
+    d = sub[["window", col, "risk_gap"]].dropna()
+    g = d.groupby("window")
+    x, y = g[col].rank(pct=True), g["risk_gap"].rank(pct=True)
+    if len(d) < 3 or x.nunique() < 2 or y.nunique() < 2:
+        return len(d), np.nan, np.nan
+    rho, p = pearsonr(x, y)
+    return len(d), float(rho), float(p)
+
+
 def exposure_vs_gap(runs: pd.DataFrame) -> pd.DataFrame:
     """Spearman rank correlation of noise-exposure score vs risk gap, raw-Sigma runs.
 
-    Computed for each constraint, each k, pooled over windows ('all') and per
-    window. The pooled rows mix window lengths (which shift both variables), so
-    the per-window rows are the cleaner test. Reported as measured, no filtering.
+    Computed for each constraint and each k, with window label:
+      * 'all'    -- pooled over windows (confounded: window length shifts both
+                    the exposure score and the gap);
+      * 'within' -- pooled within-window ranks (added after observing that
+                    confound in the 'all' rows; see ``_within_window_corr``);
+      * <int>    -- a single window length.
+    Reported as measured, with no filtering or multiple-testing correction.
     """
     raw = runs[runs["method"] == "raw"]
     rows = []
     for constraint, k in itertools.product(config.CONSTRAINTS, config.BOTTOM_K):
+        col = f"exposure_k{k}"
         sub_c = raw[raw["constraint"] == constraint]
         for label, sub in [("all", sub_c)] + [(int(w), d) for w, d in sub_c.groupby("window")]:
-            d = sub[[f"exposure_k{k}", "risk_gap"]].dropna()
-            if len(d) < 3 or d[f"exposure_k{k}"].nunique() < 2:
+            d = sub[[col, "risk_gap"]].dropna()
+            if len(d) < 3 or d[col].nunique() < 2:
                 rho = p = np.nan
             else:
-                rho, p = spearmanr(d[f"exposure_k{k}"], d["risk_gap"])
+                rho, p = spearmanr(d[col], d["risk_gap"])
             rows.append(dict(constraint=constraint, k=k, window=label, n=len(d),
                              spearman_rho=rho, p_value=p))
+        n, rho, p = _within_window_corr(sub_c, col)
+        rows.append(dict(constraint=constraint, k=k, window="within", n=n,
+                         spearman_rho=rho, p_value=p))
     return pd.DataFrame(rows)
 
 

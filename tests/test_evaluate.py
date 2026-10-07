@@ -58,3 +58,18 @@ def test_spearman_table_known_relation():
     out = ev.exposure_vs_gap(df)
     row = out[(out.constraint == "unconstrained") & (out.window == "all") & (out.k == 1)].iloc[0]
     assert row.spearman_rho == pytest.approx(1.0)
+
+
+def test_within_window_removes_window_confound():
+    # Two windows: higher window has larger exposure AND gap (pooled rho > 0),
+    # but inside each window exposure and gap are perfectly anti-correlated.
+    rows = []
+    for w, offset in [(60, 0.0), (120, 100.0)]:
+        for i in range(10):
+            rows.append(dict(method="raw", constraint="unconstrained", window=w,
+                             risk_gap=offset + (9 - i), **{f"exposure_k{k}": offset + i for k in config.BOTTOM_K}))
+    out = ev.exposure_vs_gap(pd.DataFrame(rows))
+    sel = out[(out.constraint == "unconstrained") & (out.k == 1)].set_index("window")
+    assert sel.loc["all", "spearman_rho"] > 0.5
+    assert sel.loc["within", "spearman_rho"] == pytest.approx(-1.0)
+    assert sel.loc["within", "n"] == 20
