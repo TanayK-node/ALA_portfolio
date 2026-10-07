@@ -100,3 +100,22 @@ def run_5b(returns: pd.DataFrame, common_runs: pd.DataFrame, out_dir: Path | Non
     chk.to_csv(out / "theory_mc_checks.csv", index=False)
     fig = plots.fig_theory_vs_empirical(table, out)
     return dict(table=table, checks=chk, figure=fig, sigma_cond=float(np.linalg.cond(Sigma)))
+
+
+def run_5c(returns: pd.DataFrame, out_dir: Path | None = None) -> dict:
+    """5C: pre-registered predictor comparison (two designs). Writes predictor_tests.csv,
+    predictor_verdicts.csv and the forest plot."""
+    from . import predictors
+
+    out = _out(out_dir)
+    parts, runs = [], {}
+    for d in predictors.DESIGNS:
+        runs[d] = predictors.add_predictors(predictors.build_runs(returns, d), returns)
+        parts.append(predictors.run_tests(runs[d], d))
+    tests = pd.concat(parts, ignore_index=True)
+    ver = predictors.verdicts(tests)
+    tests.to_csv(out / "predictor_tests.csv", index=False)
+    ver.to_csv(out / "predictor_verdicts.csv", index=False)
+    fig = plots.fig_predictor_forest(tests, out)
+    nruns = {d: runs[d][runs[d].constraint == "unconstrained"].groupby("window").size().to_dict() for d in runs}
+    return dict(tests=tests, verdicts=ver, figure=fig, runs_per_window=nruns)

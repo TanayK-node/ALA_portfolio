@@ -203,3 +203,19 @@ def noise_exposure_score(S: np.ndarray, w: np.ndarray, k: int) -> float:
     _, Q = eig_decompose(S)
     a = Q.T @ w
     return float(np.clip(np.sum(a[:k] ** 2) / nrm2, 0.0, 1.0))
+
+
+def effective_rank(S: np.ndarray) -> float:
+    """Participation-ratio effective rank  (sum_i l_i)^2 / sum_i l_i^2  =  tr(S)^2 / ||S||_F^2.
+
+    Equals N for a multiple of the identity (all directions equally used) and 1 for a rank-one S;
+    it measures how many eigen-directions carry the variance. Uses the eigenvalues of S.
+    """
+    vals, _ = eig_decompose(S)
+    return float(vals.sum() ** 2 / np.sum(vals**2))
+
+
+def min_eig_ratio(S: np.ndarray) -> float:
+    """lambda_min / mean(lambda) = N lambda_min / tr(S) in (-inf, 1]; small means a near-null direction."""
+    vals, _ = eig_decompose(S)
+    return float(vals[0] / vals.mean())

@@ -311,6 +311,45 @@ def fig_theory_vs_empirical(table: pd.DataFrame, out_dir: Path,
     return _save(fig, name, out_dir)
 
 
+PRED_LABEL = {"exposure_k1": "exposure score k=1", "exposure_k3": "exposure score k=3",
+              "exposure_k5": "exposure score k=5", "log_cond": "log condition number",
+              "eff_rank": "effective rank", "lam_ratio": "λmin / mean λ", "max_abs_weight": "max |w|"}
+
+
+def fig_predictor_forest(tests: pd.DataFrame, out_dir: Path, name: str = "fig_predictor_forest.png") -> Path:
+    """P5-C. Forest plot of pooled within-window Spearman rho (95% CI) for the 7 pre-registered
+    predictors, both designs; filled marker = Holm-adjusted p < 0.05."""
+    from .predictors import PREDICTORS, DESIGNS
+
+    _style()
+    pooled = tests[tests.window.astype(str) == "pooled"]
+    fig, axes = plt.subplots(1, 2, figsize=(11.5, 4.8), sharey=True)
+    style = {"nonoverlap": (METHOD_COLOR["raw"], "o", "non-overlapping windows (Fisher-z CI)", -0.14),
+             "stride60_bootstrap": (METHOD_COLOR["clipped"], "s", "stride 60, block bootstrap CI", 0.14)}
+    y = np.arange(len(PREDICTORS))[::-1]
+    for ax, cons in zip(axes, config.CONSTRAINTS):
+        for d in DESIGNS:
+            col, mk, lab, off = style[d]
+            g = pooled[(pooled.design == d) & (pooled.constraint == cons)].set_index("predictor").loc[list(PREDICTORS)]
+            for yi, (_, r) in zip(y + off, g.iterrows()):
+                sig = bool(r.p_holm < 0.05)
+                if np.isnan(r.rho):
+                    continue
+                ax.errorbar(r.rho, yi, xerr=[[r.rho - r.ci_lo], [r.ci_hi - r.rho]] if not np.isnan(r.ci_lo) else None,
+                            color=col, marker=mk, mfc=col if sig else SURFACE, capsize=2, elinewidth=1.2)
+            ax.plot([], [], color=col, marker=mk, label=lab)
+        ax.axvline(0, color=INK2, lw=0.8)
+        ax.set_yticks(y, [PRED_LABEL[p] for p in PREDICTORS])
+        ax.set_xlabel("pooled within-window Spearman ρ")
+        ax.set_title(cons.replace("_", "-") + " raw min-variance")
+        ax.grid(axis="y", visible=False)
+    h, l = axes[0].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", ncol=2, fontsize=8.5, bbox_to_anchor=(0.5, -0.03))
+    fig.suptitle("Predictors of the risk gap (filled = Holm-adjusted p < 0.05; hollow = not)", x=0.01, ha="left", fontsize=11)
+    fig.tight_layout()
+    return _save(fig, name, out_dir)
+
+
 def make_all(returns: pd.DataFrame, runs: pd.DataFrame, expo: pd.DataFrame,
              summary: pd.DataFrame, out_dir: Path = config.RESULTS_DIR) -> list[Path]:
     """Render all figures; returns the written paths."""
