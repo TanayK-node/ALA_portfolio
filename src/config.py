@@ -65,3 +65,9 @@ DEMO_WINDOW: int = 60            # training window for the illustrative figures 
 REPAIR_METHOD: str = "mp"        # "repaired" Sigma in figures 2-3 (mp | clipped | ledoit_wolf)
 PLOT_K: int = 3                  # bottom-k used in the exposure scatter
 DPI: int = 200
+
+# ----------------------------------------------------------------- phase 5
+PHASE5_DIR: Path = RESULTS_DIR / "phase5"
+BOOT_BLOCK: int = 3              # moving-block length, in OOS periods
+BOOT_N: int = 2000               # bootstrap replications
+BOOT_ALPHA: float = 0.05         # 95% percentile intervals

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -67,17 +68,26 @@ def oos_stats(w: np.ndarray, test: pd.DataFrame) -> tuple[float, float, float]:
 def run_backtest(returns: pd.DataFrame, windows: list[int] = config.WINDOWS,
                  horizon: int = config.HORIZON, step: int = config.STEP,
                  methods: tuple[str, ...] = config.METHODS,
-                 constraints: tuple[str, ...] = config.CONSTRAINTS) -> pd.DataFrame:
-    """Run the full rolling backtest; one row per (window, origin, method, constraint)."""
+                 constraints: tuple[str, ...] = config.CONSTRAINTS,
+                 origins: Sequence[int] | None = None) -> pd.DataFrame:
+    """Run the full rolling backtest; one row per (window, origin, method, constraint).
+
+    By default each window W uses its own origins ``range(W, T-H+1, step)`` (the
+    original per-window design). If ``origins`` is given, *every* window uses
+    exactly that sequence (each must satisfy W <= o <= T-H); see
+    ``run_backtest_common_oos``.
+    """
     R = returns
     T, N = R.shape
     prev_w: dict[tuple, np.ndarray] = {}
     rows = []
     for W in windows:
-        origins = range(W, T - horizon + 1, step)
-        if len(origins) == 0:
+        w_origins = range(W, T - horizon + 1, step) if origins is None else origins
+        if origins is not None and any(o < W or o > T - horizon for o in w_origins):
+            raise ValueError(f"window {W}: an origin lacks a full training window or test block")
+        if len(w_origins) == 0:
             log.warning("window %d: not enough data for any run", W)
-        for o in origins:
+        for o in w_origins:
             train, test = R.iloc[o - W:o], R.iloc[o:o + horizon]
             covs = estimate_covariances(train)
             S_raw = covs["raw"][0]
@@ -110,6 +120,32 @@ def run_backtest(returns: pd.DataFrame, windows: list[int] = config.WINDOWS,
                     row[f"exposure_k{k}"] = noise_exposure_score(S_raw, w, k)
                 rows.append(row)
     return pd.DataFrame(rows)
+
+
+def common_origins(n_obs: int, windows: Sequence[int] = config.WINDOWS,
+                   horizon: int = config.HORIZON, step: int = config.STEP) -> list[int]:
+    """Origins shared by all window lengths: o = Wmax, Wmax+step, ... <= n_obs - horizon.
+
+    The first origin is the earliest at which the *largest* window has a full
+    training window, so every shorter window also has one (they just use fewer
+    of the preceding days).
+    """
+    return list(range(max(windows), n_obs - horizon + 1, step))
+
+
+def run_backtest_common_oos(returns: pd.DataFrame, windows: list[int] = config.WINDOWS,
+                            horizon: int = config.HORIZON, step: int = config.STEP,
+                            methods: tuple[str, ...] = config.METHODS,
+                            constraints: tuple[str, ...] = config.CONSTRAINTS) -> pd.DataFrame:
+    """Backtest with the *same* out-of-sample periods for every window length.
+
+    Removes the period confound of the per-window design (where W=750 only sees
+    the late sample): every W is trained on the W days before each of the same
+    origins ``common_origins`` and tested on the same following ``horizon`` days,
+    so differences across W are differences in training length only.
+    """
+    return run_backtest(returns, windows, horizon, step, methods, constraints,
+                        origins=common_origins(len(returns), windows, horizon, step))
 
 
 _AGG_COLS = ["predicted_risk", "realized_risk", "risk_gap", "max_abs_weight", "turnover",

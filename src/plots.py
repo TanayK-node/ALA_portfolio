@@ -243,6 +243,33 @@ def fig_condition(runs: pd.DataFrame, out_dir: Path) -> Path:
     return _save(fig, "fig7_condition_number.png", out_dir)
 
 
+def fig_common_oos_realized(summary_ci: pd.DataFrame, out_dir: Path,
+                            name: str = "fig_common_oos_realized_risk.png") -> Path:
+    """P5-A. Realised risk by window under the common-OOS design; 95% block-bootstrap bars."""
+    _style()
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8), sharey=True)
+    pos = {w: i for i, w in enumerate(config.WINDOWS)}
+    n_methods = len(config.METHODS)
+    for ax, cons in zip(axes, config.CONSTRAINTS):
+        for j, m in enumerate(config.METHODS):
+            d = summary_ci[(summary_ci.constraint == cons) & (summary_ci.method == m)].sort_values("window")
+            x = d.window.map(pos).to_numpy() + (j - (n_methods - 1) / 2) * 0.08
+            y = d.realized_risk_mean.to_numpy() * 100
+            err = np.vstack([y - d.realized_risk_lo.to_numpy() * 100, d.realized_risk_hi.to_numpy() * 100 - y])
+            ax.errorbar(x, y, yerr=err, color=METHOD_COLOR[m], marker=METHOD_MARKER[m], capsize=2,
+                        elinewidth=1.0, label=METHOD_LABEL[m])
+        ax.set_xticks(list(pos.values()), [str(w) for w in config.WINDOWS])
+        ax.set_xlabel("training window (days)")
+        ax.set_title(cons.replace("_", "-"))
+    axes[0].set_ylabel("mean realised risk, annualised (%)")
+    axes[0].legend(loc="upper right")
+    n = int(summary_ci.n_periods.max())
+    fig.suptitle(f"Common out-of-sample periods ({n} blocks); bars = 95% moving-block bootstrap",
+                 x=0.01, ha="left", fontsize=11)
+    fig.tight_layout()
+    return _save(fig, name, out_dir)
+
+
 def make_all(returns: pd.DataFrame, runs: pd.DataFrame, expo: pd.DataFrame,
              summary: pd.DataFrame, out_dir: Path = config.RESULTS_DIR) -> list[Path]:
     """Render all figures; returns the written paths."""
