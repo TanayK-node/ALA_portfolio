@@ -3,31 +3,10 @@ from __future__ import annotations
 
 import logging
 
-import numpy as np
 import pandas as pd
 
-from src import config, covariance as cv, data, linalg_tools as lt, optimize as op
-
-
-def short_window_report(returns: pd.DataFrame) -> pd.DataFrame:
-    """Scenario (a): sample cov from T rows, T from below N to above N."""
-    N = returns.shape[1]
-    rows = []
-    for T in sorted({N // 2, N - 1, N, N + 1, 2 * N, *config.WINDOWS}):
-        if T > len(returns):
-            continue
-        S, (p, z, n) = cv.short_window_cov(returns, T)
-        try:
-            w = op.min_variance_closed_form(S)
-            solve_ok, max_w = True, float(np.abs(w).max())
-        except np.linalg.LinAlgError:
-            solve_ok, max_w = False, float("nan")
-        w_s = lt.min_variance_weights_spectral(S)
-        rows.append(dict(T=T, N=N, n_pos=p, n_zero=z, n_neg=n,
-                         pd_cholesky=lt.is_positive_definite(S),
-                         cond=lt.condition_number(S), solve_ok=solve_ok,
-                         max_abs_w_solve=max_w, max_abs_w_spectral=float(np.abs(w_s).max())))
-    return pd.DataFrame(rows)
+from src import config, covariance as cv, data, optimize as op
+from src.diagnostics import short_window_report
 
 
 def main() -> None:

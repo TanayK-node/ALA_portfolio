@@ -59,3 +59,9 @@ CONSTRAINTS: tuple[str, ...] = ("unconstrained", "long_only")
 # -------------------------------------------------------------- randomness
 SEED: int = 42
 N_SEEDS: int = 20                # seeds for broken-Sigma scenarios
+
+# ------------------------------------------------------------------- plots
+DEMO_WINDOW: int = 60            # training window for the illustrative figures 1-4
+REPAIR_METHOD: str = "mp"        # "repaired" Sigma in figures 2-3 (mp | clipped | ledoit_wolf)
+PLOT_K: int = 3                  # bottom-k used in the exposure scatter
+DPI: int = 200

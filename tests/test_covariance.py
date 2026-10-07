@@ -35,3 +35,19 @@ def test_mask_is_reproducible_and_scenarios_shape(rets):
     pd.testing.assert_frame_equal(a, b)
     df = cv.missing_data_scenarios(rets, fracs=[0.1], n_seeds=3)
     assert len(df) == 3 and (df[["n_pos", "n_zero", "n_neg"]].sum(axis=1) == 12).all()
+
+
+def test_short_window_report_inertia_theory():
+    from src import diagnostics as dg
+    rng = np.random.default_rng(1)
+    r = pd.DataFrame(rng.standard_normal((900, 30)) * 0.01)
+    rep = dg.short_window_report(r).set_index("T")
+    for T in (15, 29, 30):  # rank = T-1  =>  N-T+1 zero eigenvalues
+        assert rep.loc[T, "n_zero"] == 30 - T + 1
+    assert rep.loc[60, "n_zero"] == 0 and rep.loc[60, "pd_cholesky"]
+
+
+def test_md_table_renders():
+    from src import diagnostics as dg
+    t = dg.md_table(pd.DataFrame({"a": [1, 2], "b": [0.12345, 2.0]}), "{:.2f}")
+    assert t.splitlines()[0] == "| a | b |" and "| 1 | 0.12 |" in t

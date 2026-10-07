@@ -1,0 +1,12 @@
+,value
+T,1238
+N,30
+lambda_min,5.8237596157532165e-05
+lambda_median,0.00012295057894738014
+lambda_max,0.0020739084838234715
+top1_variance_share,0.29916545803952405
+inertia,"(30, 0, 0)"
+condition_number,35.61116221578872
+positive_definite,True
+mp_edge,0.00030861946916131184
+n_above_mp_edge,4
