@@ -83,3 +83,8 @@ THEORY_DRAWS: int = 400_000      # draws from the exact chi-square representatio
 # 5D sensitivity sweeps
 CLIP_SWEEP: list[float] = [0.01, 0.05, 0.10, 0.25, 0.50]   # eps = fraction * tr(S)/N
 MP_SIGMA2_RULES: tuple[str, ...] = ("trace", "median")     # MP noise variance: tr(S)/N or median eigenvalue
+
+# 5E bootstrap diagnostics
+BOOT_BLOCK_SENSITIVITY: tuple[int, ...] = (1, 2, 3, 4)   # block lengths for the sensitivity table
+BOOT_COVER_REPS: int = 1000                              # replications in the coverage check
+BOOT_COVER_B: int = 400                                  # bootstrap replications per coverage rep

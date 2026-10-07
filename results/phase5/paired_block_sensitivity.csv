@@ -1,0 +1,5 @@
+block_len,n_comparisons,n_exclude_zero,n_exclude_zero_vs_raw
+1,96,55,44
+2,96,56,44
+3,96,61,46
+4,96,73,53

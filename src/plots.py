@@ -311,6 +311,41 @@ def fig_theory_vs_empirical(table: pd.DataFrame, out_dir: Path,
     return _save(fig, name, out_dir)
 
 
+def fig_paired_differences(paired: pd.DataFrame, out_dir: Path, name: str = "fig_paired_differences.png") -> Path:
+    """P5-E. Paired differences of the mean risk gap / realised risk (method - comparator) with 95% block bootstrap CIs."""
+    _style()
+    fig, axes = plt.subplots(2, 2, figsize=(11.5, 7), sharex=True)
+    pos = {w: i for i, w in enumerate(config.WINDOWS)}
+    style = {"clipped - raw": (METHOD_COLOR["clipped"], "s", "eig-clipped − raw"),
+             "mp - raw": (METHOD_COLOR["mp"], "^", "MP-filtered − raw"),
+             "ledoit_wolf - raw": (METHOD_COLOR["ledoit_wolf"], "D", "Ledoit-Wolf − raw"),
+             "ledoit_wolf - mp": (INK2, "o", "Ledoit-Wolf − MP-filtered")}
+    for r, metric in enumerate(("risk_gap", "realized_risk")):
+        for c, cons in enumerate(config.CONSTRAINTS):
+            ax = axes[r, c]
+            for j, (cmp_, (col, mk, lab)) in enumerate(style.items()):
+                d = paired[(paired.constraint == cons) & (paired.metric == metric) & (paired.comparison == cmp_)].sort_values("window")
+                x = d.window.map(pos).to_numpy() + (j - 1.5) * 0.09
+                y = d.diff_mean.to_numpy() * 100
+                err = np.vstack([y - d.diff_lo.to_numpy() * 100, d.diff_hi.to_numpy() * 100 - y])
+                ax.errorbar(x, y, yerr=err, color=col, marker=mk, ls="none", capsize=2, elinewidth=1.1, label=lab)
+            ax.axhline(0, color=INK2, lw=0.8)
+            if r == 0:
+                ax.set_title(cons.replace("_", "-"))
+            if c == 0:
+                ax.set_ylabel("Δ mean risk gap (pts)" if r == 0 else "Δ mean realised risk (pts)")
+            ax.set_xticks(list(pos.values()), [str(w) for w in config.WINDOWS])
+            if r == 1:
+                ax.set_xlabel("training window (days)")
+    n = int(paired.n_periods.max())
+    h, l = axes[0, 0].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", ncol=4, fontsize=8.5, bbox_to_anchor=(0.5, -0.02))
+    fig.suptitle(f"Paired differences on common OOS periods (n = {n}); bars = 95% block bootstrap, unadjusted",
+                 x=0.01, ha="left", fontsize=11)
+    fig.tight_layout()
+    return _save(fig, name, out_dir)
+
+
 def _sweep_axes(title: str):
     _style()
     fig, axes = plt.subplots(2, 2, figsize=(11, 7), sharex=True)

@@ -28,12 +28,14 @@ def run_5a(returns: pd.DataFrame, old_runs: pd.DataFrame, out_dir: Path | None =
     keys = ["constraint", "method", "window"]
     ci = uncertainty.summary_with_ci(runs)
     ci_cols = keys + ["n_periods"] + [c for c in ci.columns if c.endswith(("_lo", "_hi"))]
-    summary = evaluate.summarize(runs).merge(ci[ci_cols], on=keys)
+    paired = uncertainty.paired_differences(runs)
+    paired.to_csv(out / "paired_differences_common_oos.csv", index=False)
+    summary = uncertainty.add_paired_to_summary(evaluate.summarize(runs).merge(ci[ci_cols], on=keys), paired)
     summary.to_csv(out / "summary_common_oos.csv", index=False)
     cmp_ = uncertainty.compare_designs(old_runs, runs)
     cmp_.to_csv(out / "oos_design_comparison.csv", index=False)
     fig = plots.fig_common_oos_realized(ci, out)
-    return dict(runs=runs, summary=summary, ci=ci, comparison=cmp_, figure=fig,
+    return dict(runs=runs, summary=summary, ci=ci, paired=paired, comparison=cmp_, figure=fig,
                 origins=evaluate.common_origins(len(returns)))
 
 
@@ -130,3 +132,16 @@ def run_5d(returns: pd.DataFrame, out_dir: Path | None = None) -> dict:
     clip.to_csv(out / "sweep_clip.csv", index=False)
     mp.to_csv(out / "sweep_mp.csv", index=False)
     return dict(clip=clip, mp=mp, fig_clip=plots.fig_sweep_clip(clip, out), fig_mp=plots.fig_sweep_mp(mp, out))
+
+
+def run_5e(common_runs: pd.DataFrame, paired: pd.DataFrame, out_dir: Path | None = None) -> dict:
+    """5E: bootstrap diagnostics (block-length sensitivity, simulated coverage) and paired-difference figure."""
+    out = _out(out_dir)
+    sens = uncertainty.block_sensitivity(common_runs)
+    sens.to_csv(out / "paired_block_sensitivity.csv", index=False)
+    n_periods = int(paired.n_periods.max())
+    cover = pd.DataFrame([uncertainty.coverage_check(n, L, rho)
+                          for n in sorted({n_periods, 12, 19}) for L in (1, config.BOOT_BLOCK) for rho in (0.0, 0.5)])
+    cover.to_csv(out / "bootstrap_coverage_check.csv", index=False)
+    fig = plots.fig_paired_differences(paired, out)
+    return dict(sensitivity=sens, coverage=cover, figure=fig)
