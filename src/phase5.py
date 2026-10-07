@@ -179,4 +179,7 @@ def run_phase5(returns: pd.DataFrame, old_runs: pd.DataFrame, out_dir: Path | No
     res["d"] = run_5d(returns, out); log("5D sensitivity sweeps")
     res["e"] = run_5e(res["a"]["runs"], res["a"]["paired"], out, cover_reps=cover_reps); log("5E bootstrap diagnostics")
     res["f"] = run_5f(returns, out); log("5F block-missingness")
+    from . import findings5
+
+    res["findings"] = findings5.write(out); log("key_findings_phase5.md written")
     return res

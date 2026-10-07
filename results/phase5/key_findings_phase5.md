@@ -1,239 +1,8 @@
-# Portfolio risk as a quadratic form
-**Why Markowitz fails, and how Σ's eigenstructure explains it** — Advanced Linear Algebra, Module 2
-(quadratic forms, congruent transformations, Sylvester's law of inertia, orthogonal diagonalization).
+# Phase 5 key findings (auto-generated)
 
-Portfolio variance is the quadratic form `wᵀΣw`. Writing `Σ = QΛQᵀ` and `y = Qᵀw` gives the normal form
-`wᵀΣw = Σᵢ λᵢ yᵢ²`. The minimum-variance weights `w ∝ Σ⁻¹1 = Σᵢ λᵢ⁻¹ qᵢ(qᵢᵀ1)` amplify the directions with the
-*smallest* eigenvalues — the ones estimated worst from short or noisy data. We use eigen-decomposition, inertia
-and definiteness to **detect** that (condition number, inertia, noise-exposure score) and **fix** it (eigenvalue
-clipping, Marchenko-Pastur filtering, benchmarked against Ledoit-Wolf).
-
-## Quick start
-
-```bash
-pip install -r requirements.txt          # numpy, scipy, pandas, matplotlib, yfinance, scikit-learn, pytest
-python -m pytest -q                      # unit tests
-python run_all.py                        # Phases 1-4 (~10 s with cached prices), writes results/
-python run_all.py --phase5               # + Phase 5 robustness/theory extensions (adds about a minute), writes results/phase5/
-python run_all.py --universe nifty_next  # second universe -> results/nifty_next/ (needs its price cache, see Phase 5G)
-python compare_universes.py              # run every configured universe, one comparison table
-```
-
-* Prices are downloaded once and cached in `data/prices.csv`; later runs reload the cache and never re-download.
-  Delete the file to force a refresh (the date range is then recomputed from today's date, so numbers will change).
-  `data/prices.csv` is committed so the project reproduces without network access.
-* `notebooks/main.ipynb` is a thin walk-through that calls `src/` (needs `pip install -r requirements-dev.txt`
-  to re-execute; it is committed with outputs).
-* Phase scripts `phase1_report.py`, `phase2_report.py`, `phase3_report.py` print the intermediate diagnostics.
-
-## Layout
-
-```
-src/config.py        every tunable: tickers, dates, windows, tolerances, seeds
-src/data.py          download, cache, clean (drop sparse tickers, forward-fill ≤3 days), log returns
-src/linalg_tools.py  the linear algebra, written by us (only np.linalg.eigh / cholesky are solvers)
-src/covariance.py    sample / pairwise-complete / Ledoit-Wolf (sklearn, benchmark only) + broken-Σ scenarios
-src/optimize.py      min-variance (closed form via solve, long-only SLSQP), efficient frontier
-src/evaluate.py      rolling backtest, summary table, exposure-vs-gap hypothesis test
-src/diagnostics.py   full-sample + short-window reports, auto-generated results/key_findings.md
-src/plots.py         all figures
--- Phase 5 --
-src/bootstrap.py     moving-block bootstrap utilities          src/uncertainty.py  CIs for summaries, paired differences, coverage check
-src/theory.py        Gaussian finite-sample GMV theory         src/simulate.py     Monte Carlo (Gaussian / Student-t / bootstrap)
-src/predictors.py    pre-registered predictor tests (5C)       src/multitest.py    Holm, Benjamini-Hochberg, Fisher-z pooling
-src/sweeps.py        clipping-floor / MP sigma^2 sweeps (5D)   src/block_missing.py late-listing experiment (5F)
-src/universes.py     universe / sub-period resolution (5G)     src/phase5.py       orchestration of 5A-5F
-src/findings5.py     auto-generated Phase 5 findings           compare_universes.py cross-universe comparison table
-tests/               pytest (linear algebra properties, optimizers, backtest, scenarios, every Phase 5 function)
-```
-
-`linalg_tools.py` contains: `eig_decompose`, `inertia`, `is_positive_definite` (attempted Cholesky), `is_psd`,
-`condition_number`, `normal_form_transform`, `verify_sylvester`, `clip_eigenvalues`, `mp_noise_edge`,
-`clip_by_mp`, `min_variance_weights_spectral`, `noise_exposure_score`; Phase 5 adds `effective_rank`, `min_eig_ratio`,
-`frobenius_distance`. No black-box "nearest PSD" routine is used.
-
-## Outputs (`results/`)
-
-| File | Meaning |
-|---|---|
-| `key_findings.md` | Auto-generated summary; **every number is computed in the run**. Start here. |
-| `full_sample_diagnostics.csv` | Eigenvalue summary, inertia, condition number, PD check of the full-sample Σ |
-| `scenario_short_window.csv` | Broken-Σ (a): sample covariance from T rows vs N; inertia, Cholesky PD flag, `solve` vs spectral weights |
-| `scenario_missing_data.csv` | Broken-Σ (b): random masking + pairwise-complete Σ; inertia and λ_min per (mask, seed). Measured, not assumed to be non-PSD |
-| `backtest_runs.csv` | One row per (window, origin, method, constraint): predicted vs realised risk, risk gap, max‖w‖∞, turnover, κ, inertia, exposure scores, Sharpe |
-| `summary_table.csv` | Mean/median of the metrics by constraint × method × window |
-| `exposure_vs_gap.csv` | Spearman ρ between noise-exposure score and risk gap (raw Σ): pooled (`all`), `within`-window, and per window |
-| `fig1_eigenvalue_spectrum.png` | Eigenvalue spectrum (log): raw vs clipped vs MP-filtered, MP edge marked |
-| `fig2_efficient_frontier.png` | Long-only frontier for raw vs repaired Σ; dots = same portfolios out-of-sample |
-| `fig3_weight_comparison.png` | Min-variance weights, raw vs repaired Σ |
-| `fig4_risk_contribution.png` | Risk share λᵢyᵢ² per principal direction of the raw min-variance portfolio |
-| `fig5_predicted_vs_realized.png` | Predicted vs realised risk by window and method (mean over runs) |
-| `fig6_exposure_vs_gap_*.png` | Exposure score vs risk gap, pooled and within-window ranks, ρ in the titles |
-| `fig7_condition_number.png` | Condition number vs window length (log y) |
-
-Phase 5 outputs live in `results/phase5/` (table below); nothing in `results/` from Phases 1-4 is modified by Phase 5.
-
-Figures 1–4 illustrate the mechanism on **one** training window (`DEMO_WINDOW`, the last non-overlapping origin);
-the aggregate evidence is figures 5–7 and the tables.
-
-## Design choices and defaults (all in `config.py`)
-
-| Choice | Default | Why |
-|---|---|---|
-| Inertia tolerance | `|λ| ≤ 1e-10·max|λ|` counts as zero | relative, so it is scale-free (daily covariances are ~1e-4) |
-| Pseudo-inverse rank cutoff | `λ > 1e-10·λmax` | same idea; singular Σ gives the min-variance portfolio *within the retained subspace* |
-| Clipping floor in the backtest | `eps = 0.10 · tr(Σ)/N` (relative) | an absolute 1e-6 is below every sample eigenvalue once T > N and would make "clipped" ≡ "raw". Chosen a priori, **not tuned** |
-| MP noise variance | `σ² = tr(Σ)/N` | standard but slightly conservative; eigenvalues below the edge are replaced by their mean (trace-preserving) |
-| Annualisation | `std·√252`, mean·252, log returns | applied identically to predicted and realised risk |
-| Backtest roll | train `W` days, test next `H=60`, step `60` | non-overlapping out-of-sample blocks |
-| Weights in test | held fixed for `H` days | no drift or rebalancing; turnover is `‖wₜ − wₜ₋₁‖₁` between consecutive origins |
-| Broken-Σ (b) | masks 5/10/20 %, 20 seeds each | reported as measured |
-| Seed | 42 | global seed plus explicit `default_rng(seed)` everywhere |
-| Common-OOS design (5A) | origins `Wmax, Wmax+60, ...`, every window trained on the W days before | same test periods for every W; removes the period confound |
-| Bootstrap (5E) | moving blocks of 3 periods, 2000 resamples, 95% percentile | few periods: intervals are too narrow, see the coverage check |
-| Monte Carlo (5B) | 10 000 sims per window, true Σ = 0.5-shrunk empirical Σ; tolerance fixed in advance: 3 SE, KS p < 0.01 | tolerances set before any simulation was run |
-| Sweeps (5D) | clip floor 0.01–0.50 × tr(S)/N; MP σ² = tr(S)/N or median eigenvalue | reported, never selected |
-| Late listing (5F) | m ∈ {5, 10, 15}, f ∈ {0.3, 0.5, 0.7}, 50 seeds | all late stocks list on the same date |
-
-## Honest limitations (updated in Phase 5)
-
-* **One universe analysed.** 30 large-cap Nifty stocks over ~5 years. A second universe and sub-period splits are
-  supported in code (5G) but were **not run** in the development sandbox (no data access); nothing here is evidence about other
-  markets or regimes, and the Nifty Next ticker list may need edits (constituents and Yahoo symbols change).
-* **Different out-of-sample periods per window length (Phases 3-4).** Addressed in 5A with a common-OOS design; the two designs
-  are reported side by side. The common design has only a handful of test blocks, so it trades the confound for low power.
-  Sharpe ratios remain period-dependent, and min-variance portfolios are not designed to maximise them.
-* **Few periods, unreliable intervals (5E).** Block-bootstrap intervals over so few periods cover far less than 95% (simulated
-  coverage in `bootstrap_coverage_check.csv`), the comparisons are unadjusted, and many flagged differences are tiny. "Excludes
-  zero" is descriptive, not a significance claim.
-* **Runs are not independent.** Training windows overlap whenever `W > 60`; Phase 3-4 p-values are optimistic. 5C repeats the
-  predictor analysis on non-overlapping windows, where very few independent windows exist at long `W`.
-* **Realised risk is noisy.** It is the standard deviation of only 60 daily returns.
-* **The exposure-score hypothesis.** The pooled correlation across windows is confounded by window length. The within-window
-  version was **added after seeing the pooled result**. The pre-registered 5C test is not blind with respect to the exposure
-  score (it had been looked at); it also tests six further predictors that had not been looked at.
-* **Post-hoc analyses are labelled as such:** the within-window correlation (Phase 4), the "recalled offset" diagnostic in 5B, and
-  the observation that the MP result depends on the σ² rule (5D). None of them changed a default.
-* **Theory scope (5B).** Tier 1 (in-sample bias) is an exact standard Wishart result. Tier 2 (out-of-sample inflation) was
-  **derived here and checked by simulation, but not verified against the published sources** (they could not be retrieved from
-  the sandbox). Both apply only to the unconstrained GMV portfolio from the raw sample covariance of i.i.d. Gaussian data; they say
-  nothing about long-only, clipped, MP-filtered or Ledoit-Wolf portfolios or about dependent / fat-tailed data. The Monte Carlo
-  standard errors are `sd/sqrt(n)`, which is unreliable under very heavy tails.
-* **Missing-data scenarios.** Random masking (Phase 2) never produced a non-PSD covariance in this universe. The late-listing
-  experiment (5F) does, but only when most of the sample is missing for the late stocks; it assumes all late stocks list on the
-  same date and judges weights against the full-sample covariance (a fixed reference, not an out-of-sample test) with the
-  unconstrained optimizer only. The notebook's Sylvester demo uses a *constructed* indefinite matrix, clearly labelled.
-* **Platform dependence.** For *exactly singular* Σ, whether `np.linalg.solve` raises or returns rounding-noise weights
-  depends on the BLAS/LAPACK build (it differed between Windows and Linux in our runs). Inertia and the spectral weights
-  are stable; treat the `max_abs_w_solve` column of `scenario_short_window.csv` for singular rows as illustrative. All
-  backtest windows (W ≥ 60 > N = 30) are non-singular and unaffected.
-* **Eigenvalue clipping depends on its floor (5D).** With the a-priori floor it is a no-op at long windows; larger floors change
-  the results materially, so the a-priori setting is one point on a curve, not an optimum (and no optimum is claimed).
-* **Log-return approximation.** Portfolio returns are `w·r` with log returns r, a standard daily approximation.
-* **No transaction costs, no short-sale costs.** The unconstrained portfolios take large short positions.
-
----
-
-## Phase 5C pre-registration (written and committed BEFORE any 5C analysis was run)
-
-**Question.** Which candidate quantities, computed on the training window's *raw* sample covariance,
-predict the out-of-sample risk gap of the min-variance portfolio?
-
-**Outcome.** `risk_gap = realised − predicted` annualised risk (percentage points), H = 60 test days,
-exactly as in the existing backtest. Primary portfolio: **unconstrained** raw-Σ min-variance
-(the case the theory and the hypothesis are about). Secondary, reported separately with its own
-correction family: long-only raw-Σ min-variance.
-
-**Candidate predictors (exactly these seven; no others will be added or dropped).**
-1. `noise_exposure_score`, k = 1
-2. `noise_exposure_score`, k = 3
-3. `noise_exposure_score`, k = 5
-4. log condition number, `log(λmax/λmin)` of the training Σ
-5. effective rank (participation ratio) `(Σλ)² / Σλ²`
-6. `λmin / mean(λ)`
-7. `max |w|` of the evaluated portfolio
-
-**Primary statistic.** Spearman ρ *within each window length*, pooled across windows by Fisher-z
-averaging: `z_W = atanh(ρ_W)`, weight `n_W − 3`, `z̄ = Σ w_W z_W / Σ w_W`, `ρ̄ = tanh(z̄)`. Windows with
-`n_W ≤ 3` get weight 0 (and are listed, not hidden). Standard error `sqrt(1.06 / Σ w_W)` (the usual
-Spearman variance inflation), two-sided normal p-value. All tests are **two-sided**; the direction we
-expect (exposure, log κ, max|w| positive; effective rank and λmin/mean negative) is recorded but not used
-for inference.
-
-**Multiple comparisons.** Primary family = the 7 pooled tests of one (design, portfolio) cell; we report raw,
-Holm (FWER) and Benjamini–Hochberg (FDR) adjusted p-values at level 0.05. The per-window tests are a
-secondary, exploratory family with their own Holm/BH correction.
-
-**Two designs (both reported, neither chosen after the fact).**
-* **Non-overlapping:** origins `o = W, 2W, 3W, …` with `o + 60 ≤ T`, i.e. stride = W, so training windows
-  do not overlap and p-values are not inflated by shared training data. (A test block coincides with the
-  start of the next training window, so adjacent runs are not strictly independent; we note this.)
-* **Stride 60 + block bootstrap:** the existing per-window origins (stride 60; training windows overlap
-  when W > 60). Inference by moving-block bootstrap over each window's origin sequence (B = 2000), block
-  length `min(max(3, ceil(W/60)), n_W // 2)`; windows are resampled independently (cross-window dependence
-  is ignored, which makes the pooled interval optimistic). Pooled CI = percentile interval of the Fisher-z
-  average; p-value = `2·min(P*(ρ̄* ≤ 0), P*(ρ̄* ≥ 0))` with +1 smoothing.
-
-**Decision rule.** A predictor is called *supported* only if its pooled **Holm-adjusted p < 0.05 in both
-designs and the two estimates have the same sign**. Anything else is reported as *not supported*. We report
-effect sizes and intervals whatever the outcome.
-
-**Known power problem, stated in advance.** With T = 1238 days, the non-overlapping design yields about
-19 / 13 / 9 / 4 / 2 / 1 runs for W = 60 / 90 / 120 / 250 / 500 / 750. W = 500 and W = 750 cannot support a
-correlation at all (n < 3) and W = 750 has exactly one independent window; the pooled estimate is therefore
-driven by W ≤ 250. A null result here means "no detectable association with this little data", not "no
-association".
-
-**What has already been seen (so this is not a blind test).** In Phase 3/4 we looked at the exposure score
-(k = 1, 3, 5) versus the gap on overlapping windows (pooled and within-window; see `exposure_vs_gap.csv`):
-within-window correlations were weak and mostly insignificant. We had **not** looked at predictors 4–7
-against the gap. The pre-registration fixes the analysis plan; it does not make the exposure-score test
-independent of what we already saw.
-
----
-
-## Phase 5: robustness and theory extensions
-
-**What was run** (all on the cached prices, fixed seeds, `python run_all.py --phase5`, about a minute; outputs in `results/phase5/`,
-Phases 1-4 outputs untouched):
-
-| Step | What | Main outputs |
-|---|---|---|
-| 5A | Backtest with the **same out-of-sample periods for every window length**; old vs common design side by side; block-bootstrap CIs | `summary_common_oos.csv`, `oos_design_comparison.csv`, `fig_common_oos_realized_risk.png` |
-| 5B | Gaussian finite-sample theory for the estimated GMV portfolio (two tiers, see `src/theory.py`), Monte Carlo with a known Σ (Gaussian / Student-t / bootstrap), overlay on the measured data | `theory_vs_empirical.csv`, `theory_mc_checks.csv`, `fig_theory_vs_empirical.png` |
-| 5C | **Pre-registered** predictor comparison (plan above, committed before the analysis), non-overlapping and block-bootstrap designs, Holm and BH | `predictor_tests.csv`, `predictor_verdicts.csv`, `fig_predictor_forest.png` |
-| 5D | Sensitivity of the clipping floor and the MP noise variance (common-OOS design) | `sweep_clip.csv`, `sweep_mp.csv`, `fig_sweep_clip.png`, `fig_sweep_mp.png` |
-| 5E | Paired-difference CIs (each estimator − raw, Ledoit-Wolf − MP), block-length sensitivity, simulated coverage of the bootstrap | `paired_differences_common_oos.csv`, `paired_block_sensitivity.csv`, `bootstrap_coverage_check.csv`, `fig_paired_differences.png` |
-| 5F | Late-listing block missingness: can pairwise-complete Σ go indefinite? clipping repair; complete-case comparison | `block_missing.csv`, `block_missing_summary.csv`, `fig_block_missing_heatmap.png` |
-| 5G | Multi-universe / sub-period support (code only; no data downloaded in the sandbox) | `run_all.py --universe/--period`, `compare_universes.py` |
-
-`results/phase5/key_findings_phase5.md` contains the same tables as below, computed from the CSVs.
-
-**Second universe (5G).** On a machine with internet access: `python -m src.data nifty_next` (caches `data/prices_nifty_next.csv`), then
-`python run_all.py --universe nifty_next [--phase5]`, optionally `--period first_half|second_half|<start>:<end>`; or
-`python compare_universes.py [--phase5] [--periods full first_half second_half]` for one comparison table
-(`results/universe_comparison.csv`). With no flag the legacy layout (`results/`) is kept; with a flag, results go to
-`results/<universe>/[<period>/]`. Window lengths with fewer than 4 out-of-sample periods in the chosen sample are dropped
-automatically. Nothing is ever downloaded unless you run `python -m src.data`.
-
-**Reading the results (qualitative; the numbers are in the tables below and are regenerated on every run).**
-* The per-window versus common out-of-sample comparison changes the mean gaps modestly; the ordering of the methods is the same.
-* The Wishart tier-1 result and the derived tier-2 result match the Gaussian simulation within the pre-stated tolerance; measured
-  realised/predicted ratios sit above the Gaussian theory, in the direction the fat-tailed simulations predict, but with so few
-  periods the data cannot discriminate between them.
-* Under the pre-registered rule no predictor of the risk gap is supported, including the noise-exposure score.
-* Both sensitivity sweeps show that the clipping and MP results depend materially on their tuning parameter.
-* Bootstrap intervals with this few periods are too narrow; treat "excludes zero" flags as descriptive.
-* Block missingness from late listings can make the pairwise-complete covariance indefinite (only when a large share of the sample
-  is missing); clipping with a genuine floor repairs the matrix and a minimal floor does not, and in most of the non-PSD runs the
-  complete-case covariance (which discards the early data) gives a better portfolio than the repaired matrix.
-
-### Phase 5 results (auto-generated; refresh with `python -m src.findings5 --update-readme`)
-
-<!-- PHASE5-RESULTS:START -->
 Every number below was computed from the tables in `results/phase5/` (regenerate with `python run_all.py --phase5`). Risks are annualised (`std·sqrt(252)`, log returns); gaps are in percentage points.
 
-### 5A. Common out-of-sample periods
+## 5A. Common out-of-sample periods
 
 8 test blocks of 60 days, 2024-10-24 to 2026-09-24; every window length W is trained on the W days before each of the same origins (first origin = the largest window, 750).
 
@@ -311,7 +80,7 @@ long_only (old → new)
 
 Largest absolute change in mean gap between the two designs: 0.68 pts (unconstrained, mp, W=250).
 
-### 5B. Theory overlay (unconstrained raw GMV, i.i.d. Gaussian)
+## 5B. Theory overlay (unconstrained raw GMV, i.i.d. Gaussian)
 
 Tier 1 (exact, Wishart): in-sample variance ratio `(T-1)Q ~ chi2_{T-N}`. Tier 2 (derived in `src/theory.py`, **not verified against the literature**): out-of-sample variance ratio `R-1 ~ chi2_{N-1}/chi2_{T-N+1}`. Monte Carlo: N = 30, 10000 simulations per window, true Σ = shrunk empirical Σ (shrinkage 0.5). Pre-stated tolerance: |MC − theory| ≤ 3 standard errors; KS mismatch flagged at p < 0.01.
 
@@ -350,7 +119,7 @@ Measured ratio above the Gaussian theory at 6 of 6 windows; measured CI contains
 | 500 | 1.062 | 1.062 | 0.0002 | -2.284 |
 | 750 | 1.04 | 1.04 | 0.0001 | -0.989 |
 
-### 5C. Pre-registered predictor comparison
+## 5C. Pre-registered predictor comparison
 
 Analysis plan: see the pre-registration section above (committed before any 5C analysis). Pooled statistic = Fisher-z average of within-window Spearman ρ; Holm and BH within the 7-predictor family of each (design, portfolio) cell.
 
@@ -421,7 +190,7 @@ Runs per window (unconstrained):
 
 Pooled tests with Holm p < 0.05 in at least one design: nonoverlap/long_only/log_cond (ρ = -0.50, Holm p = 0.017); nonoverlap/long_only/eff_rank (ρ = 0.46, Holm p = 0.032); nonoverlap/long_only/lam_ratio (ρ = 0.46, Holm p = 0.032); stride60_bootstrap/unconstrained/log_cond (ρ = -0.38, Holm p = 0.007); stride60_bootstrap/unconstrained/eff_rank (ρ = 0.37, Holm p = 0.007).
 
-### 5D. Sensitivity sweeps (common-OOS design)
+## 5D. Sensitivity sweeps (common-OOS design)
 
 Clipping floor = fraction × tr(S)/N, fractions [0.01, 0.05, 0.1, 0.25, 0.5] (0 = raw). A-priori setting in the main analysis: 0.1. Parameters are not selected.
 
@@ -533,7 +302,7 @@ MP noise variance: σ² from ['trace', 'median'] (a-priori rule: trace).
 | 500 | 22.88 | 27.00 |
 | 750 | 21.25 | 26.50 |
 
-### 5E. Uncertainty (moving-block bootstrap over OOS periods)
+## 5E. Uncertainty (moving-block bootstrap over OOS periods)
 
 8 periods per window, block length 3, 2000 resamples, 95% percentile intervals; differences are method − comparator on identical periods (negative gap difference = smaller gap; negative realised-risk difference = lower risk). Unadjusted for multiple comparisons.
 
@@ -611,7 +380,7 @@ Paired comparisons: 96; intervals excluding zero: 61; flagged differences smalle
 | 500 | -0.00* | -0.40* | -0.04* | 0.37 |
 | 750 | -0.00* | -0.44* | -0.02 | 0.42* |
 
-### 5F. Block missingness: late-listed stocks
+## 5F. Block missingness: late-listed stocks
 
 m ∈ [5, 10, 15] stocks have the first fraction f ∈ [0.3, 0.5, 0.7] of the sample missing (all list on the same date), 50 seeds per cell; pairwise-complete covariance. Reference for judging weights: the full-sample covariance of the unmasked data (variance ratio 1 = full-information GMV).
 
@@ -642,4 +411,4 @@ Repair cost ‖S_clipped − S‖_F / ‖S‖_F: relative floor 0.0101–0.0127,
 Complete-case variance ratio is lower (better) than the relative-floor repair in 10 of 11 non-PSD runs.
 
 Verification over all 450 runs: repaired matrix positive definite (relative floor) in 450; minimum eigenvalue ≥ floor in 450; Frobenius distance equals the spectral distance in 450; complete-case covariance positive definite in 450.
-<!-- PHASE5-RESULTS:END -->
+

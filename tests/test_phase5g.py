@@ -114,7 +114,7 @@ def test_phase5_smoke(synthetic_universe):
     from src import evaluate
     old = evaluate.run_backtest(R)
     res = phase5.run_phase5(R, old, synthetic_universe / "p5", n_sims=300, cover_reps=20, verbose=False)
-    assert set(res) == set("abcdef")
+    assert set("abcdef") <= set(res) and (synthetic_universe / "p5" / "key_findings_phase5.md").exists()
     for f in ("summary_common_oos.csv", "theory_vs_empirical.csv", "predictor_tests.csv", "sweep_clip.csv",
               "sweep_mp.csv", "paired_differences_common_oos.csv", "bootstrap_coverage_check.csv", "block_missing.csv"):
         assert (synthetic_universe / "p5" / f).exists(), f
