@@ -93,3 +93,24 @@ BOOT_COVER_B: int = 400                                  # bootstrap replication
 BLOCK_M: list[int] = [5, 10, 15]          # number of late-listed stocks
 BLOCK_F: list[float] = [0.3, 0.5, 0.7]    # fraction of the sample (from the start) that is missing
 BLOCK_SEEDS: int = 50
+
+# ----------------------------------------------------------------- 5G universes / periods
+# 30 liquid Nifty Next 50 names with a listing history covering the whole ~5-year sample (no IPOs after
+# Oct 2021). Constituents change over time and Yahoo symbols can change: edit this list if a ticker fails;
+# tickers with too much missing data are dropped (and reported) by the cleaning step.
+NIFTY_NEXT_TICKERS: list[str] = [
+    "AMBUJACEM.NS", "BANKBARODA.NS", "BERGEPAINT.NS", "BOSCHLTD.NS", "CHOLAFIN.NS",
+    "COLPAL.NS", "DABUR.NS", "DLF.NS", "GAIL.NS", "GODREJCP.NS",
+    "HAVELLS.NS", "ICICIGI.NS", "IOC.NS", "INDIGO.NS", "JINDALSTEL.NS",
+    "LUPIN.NS", "MARICO.NS", "MUTHOOTFIN.NS", "PIDILITIND.NS", "PNB.NS",
+    "SIEMENS.NS", "SRF.NS", "TORNTPHARM.NS", "TRENT.NS", "TVSMOTOR.NS",
+    "VEDL.NS", "BEL.NS", "HAL.NS", "PFC.NS", "RECLTD.NS",
+]
+UNIVERSES: dict[str, dict] = {
+    "nifty30": dict(tickers=TICKERS, prices_csv=PRICES_CSV),
+    "nifty_next": dict(tickers=NIFTY_NEXT_TICKERS, prices_csv=DATA_DIR / "prices_nifty_next.csv"),
+}
+DEFAULT_UNIVERSE: str = "nifty30"
+# Sub-periods are fractions of the cleaned return history: (start_fraction, end_fraction).
+PERIOD_PRESETS: dict[str, tuple[float, float]] = {"full": (0.0, 1.0), "first_half": (0.0, 0.5), "second_half": (0.5, 1.0)}
+MIN_WINDOW_PERIODS: int = 4      # a window length is dropped if it yields fewer than this many OOS runs

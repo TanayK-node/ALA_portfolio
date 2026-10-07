@@ -134,13 +134,14 @@ def run_5d(returns: pd.DataFrame, out_dir: Path | None = None) -> dict:
     return dict(clip=clip, mp=mp, fig_clip=plots.fig_sweep_clip(clip, out), fig_mp=plots.fig_sweep_mp(mp, out))
 
 
-def run_5e(common_runs: pd.DataFrame, paired: pd.DataFrame, out_dir: Path | None = None) -> dict:
+def run_5e(common_runs: pd.DataFrame, paired: pd.DataFrame, out_dir: Path | None = None,
+           cover_reps: int | None = None) -> dict:
     """5E: bootstrap diagnostics (block-length sensitivity, simulated coverage) and paired-difference figure."""
     out = _out(out_dir)
     sens = uncertainty.block_sensitivity(common_runs)
     sens.to_csv(out / "paired_block_sensitivity.csv", index=False)
     n_periods = int(paired.n_periods.max())
-    cover = pd.DataFrame([uncertainty.coverage_check(n, L, rho)
+    cover = pd.DataFrame([uncertainty.coverage_check(n, L, rho, reps=cover_reps or config.BOOT_COVER_REPS)
                           for n in sorted({n_periods, 12, 19}) for L in (1, config.BOOT_BLOCK) for rho in (0.0, 0.5)])
     cover.to_csv(out / "bootstrap_coverage_check.csv", index=False)
     fig = plots.fig_paired_differences(paired, out)
@@ -152,8 +153,30 @@ def run_5f(returns: pd.DataFrame, out_dir: Path | None = None) -> dict:
     from . import block_missing
 
     out = _out(out_dir)
-    df = block_missing.run_experiment(returns)
+    ms = [m for m in config.BLOCK_M if m < returns.shape[1]]      # need at least one never-late stock
+    df = block_missing.run_experiment(returns, ms=ms)
     summ = block_missing.summarize(df)
     df.to_csv(out / "block_missing.csv", index=False)
     summ.to_csv(out / "block_missing_summary.csv", index=False)
     return dict(runs=df, summary=summ, figure=plots.fig_block_missing_heatmap(summ, out))
+
+
+def run_phase5(returns: pd.DataFrame, old_runs: pd.DataFrame, out_dir: Path | None = None,
+               n_sims: int = config.MC_SIMS, cover_reps: int | None = None, verbose: bool = True) -> dict:
+    """Run sub-phases 5A-5F in order and return all their result dicts (keys 'a'..'f')."""
+    import time
+
+    out = _out(out_dir)
+    t0, res = time.time(), {}
+
+    def log(msg: str) -> None:
+        if verbose:
+            print(f"  [phase 5] {msg} ({time.time() - t0:.0f}s)")
+
+    res["a"] = run_5a(returns, old_runs, out); log("5A common-OOS backtest + bootstrap CIs")
+    res["b"] = run_5b(returns, res["a"]["runs"], out, n_sims=n_sims); log("5B theory vs Monte Carlo")
+    res["c"] = run_5c(returns, out); log("5C pre-registered predictor tests")
+    res["d"] = run_5d(returns, out); log("5D sensitivity sweeps")
+    res["e"] = run_5e(res["a"]["runs"], res["a"]["paired"], out, cover_reps=cover_reps); log("5E bootstrap diagnostics")
+    res["f"] = run_5f(returns, out); log("5F block-missingness")
+    return res

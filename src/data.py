@@ -31,7 +31,7 @@ def download_prices(tickers: list[str], start: str, end: str) -> pd.DataFrame:
 
 
 def load_or_download(path: Path = config.PRICES_CSV,
-                     tickers: list[str] = config.TICKERS) -> pd.DataFrame:
+                     tickers: list[str] = config.TICKERS) -> pd.DataFrame:  # noqa: E501
     """Load prices from the CSV cache if present, else download and cache.
 
     The cache is never refreshed automatically; delete data/prices.csv to
@@ -74,7 +74,7 @@ def log_returns(prices: pd.DataFrame) -> pd.DataFrame:
     return np.log(prices).diff().iloc[1:]
 
 
-def get_returns(path: Path = config.PRICES_CSV
+def get_returns(path: Path = config.PRICES_CSV, tickers: list[str] = config.TICKERS
                 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     """Full data pipeline.
 
@@ -82,8 +82,27 @@ def get_returns(path: Path = config.PRICES_CSV
       * returns_with_nan: log returns keeping NaNs (missing-data experiment);
       * returns_complete: rows with any NaN removed (used by the backtest).
     """
-    prices, dropped = clean_prices(load_or_download(path))
+    prices, dropped = clean_prices(load_or_download(path, tickers))
     r_nan = log_returns(prices)
     # Guard against inf from zero/negative prices in bad vendor data.
     r_nan = r_nan.replace([np.inf, -np.inf], np.nan)
     return r_nan.dropna(how="any"), r_nan, dropped
+
+
+def main(argv: list[str] | None = None) -> None:
+    """CLI: ``python -m src.data <universe>`` downloads and caches that universe's prices (run it locally)."""
+    import argparse
+
+    ap = argparse.ArgumentParser(description="Download and cache daily adjusted closes for a configured universe.")
+    ap.add_argument("universe", choices=sorted(config.UNIVERSES))
+    ap.add_argument("--force", action="store_true", help="re-download even if the cache file exists")
+    a = ap.parse_args(argv)
+    u = config.UNIVERSES[a.universe]
+    if a.force and Path(u["prices_csv"]).exists():
+        Path(u["prices_csv"]).unlink()
+    prices = load_or_download(u["prices_csv"], u["tickers"])
+    print(f"{a.universe}: {prices.shape[0]} rows x {prices.shape[1]} tickers -> {u['prices_csv']}")
+
+
+if __name__ == "__main__":
+    main()
