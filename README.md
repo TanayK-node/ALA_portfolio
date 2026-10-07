@@ -101,3 +101,61 @@ the aggregate evidence is figures 5–7 and the tables.
   coincides with raw there. A floor sensitivity sweep is not included.
 * **Log-return approximation.** Portfolio returns are `w·r` with log returns r, a standard daily approximation.
 * **No transaction costs, no short-sale costs.** The unconstrained portfolios take large short positions.
+
+---
+
+## Phase 5C pre-registration (written and committed BEFORE any 5C analysis was run)
+
+**Question.** Which candidate quantities, computed on the training window's *raw* sample covariance,
+predict the out-of-sample risk gap of the min-variance portfolio?
+
+**Outcome.** `risk_gap = realised − predicted` annualised risk (percentage points), H = 60 test days,
+exactly as in the existing backtest. Primary portfolio: **unconstrained** raw-Σ min-variance
+(the case the theory and the hypothesis are about). Secondary, reported separately with its own
+correction family: long-only raw-Σ min-variance.
+
+**Candidate predictors (exactly these seven; no others will be added or dropped).**
+1. `noise_exposure_score`, k = 1
+2. `noise_exposure_score`, k = 3
+3. `noise_exposure_score`, k = 5
+4. log condition number, `log(λmax/λmin)` of the training Σ
+5. effective rank (participation ratio) `(Σλ)² / Σλ²`
+6. `λmin / mean(λ)`
+7. `max |w|` of the evaluated portfolio
+
+**Primary statistic.** Spearman ρ *within each window length*, pooled across windows by Fisher-z
+averaging: `z_W = atanh(ρ_W)`, weight `n_W − 3`, `z̄ = Σ w_W z_W / Σ w_W`, `ρ̄ = tanh(z̄)`. Windows with
+`n_W ≤ 3` get weight 0 (and are listed, not hidden). Standard error `sqrt(1.06 / Σ w_W)` (the usual
+Spearman variance inflation), two-sided normal p-value. All tests are **two-sided**; the direction we
+expect (exposure, log κ, max|w| positive; effective rank and λmin/mean negative) is recorded but not used
+for inference.
+
+**Multiple comparisons.** Primary family = the 7 pooled tests of one (design, portfolio) cell; we report raw,
+Holm (FWER) and Benjamini–Hochberg (FDR) adjusted p-values at level 0.05. The per-window tests are a
+secondary, exploratory family with their own Holm/BH correction.
+
+**Two designs (both reported, neither chosen after the fact).**
+* **Non-overlapping:** origins `o = W, 2W, 3W, …` with `o + 60 ≤ T`, i.e. stride = W, so training windows
+  do not overlap and p-values are not inflated by shared training data. (A test block coincides with the
+  start of the next training window, so adjacent runs are not strictly independent; we note this.)
+* **Stride 60 + block bootstrap:** the existing per-window origins (stride 60; training windows overlap
+  when W > 60). Inference by moving-block bootstrap over each window's origin sequence (B = 2000), block
+  length `min(max(3, ceil(W/60)), n_W // 2)`; windows are resampled independently (cross-window dependence
+  is ignored, which makes the pooled interval optimistic). Pooled CI = percentile interval of the Fisher-z
+  average; p-value = `2·min(P*(ρ̄* ≤ 0), P*(ρ̄* ≥ 0))` with +1 smoothing.
+
+**Decision rule.** A predictor is called *supported* only if its pooled **Holm-adjusted p < 0.05 in both
+designs and the two estimates have the same sign**. Anything else is reported as *not supported*. We report
+effect sizes and intervals whatever the outcome.
+
+**Known power problem, stated in advance.** With T = 1238 days, the non-overlapping design yields about
+19 / 13 / 9 / 4 / 2 / 1 runs for W = 60 / 90 / 120 / 250 / 500 / 750. W = 500 and W = 750 cannot support a
+correlation at all (n < 3) and W = 750 has exactly one independent window; the pooled estimate is therefore
+driven by W ≤ 250. A null result here means "no detectable association with this little data", not "no
+association".
+
+**What has already been seen (so this is not a blind test).** In Phase 3/4 we looked at the exposure score
+(k = 1, 3, 5) versus the gap on overlapping windows (pooled and within-window; see `exposure_vs_gap.csv`):
+within-window correlations were weak and mostly insignificant. We had **not** looked at predictors 4–7
+against the gap. The pre-registration fixes the analysis plan; it does not make the exposure-score test
+independent of what we already saw.
