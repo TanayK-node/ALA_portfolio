@@ -88,3 +88,8 @@ MP_SIGMA2_RULES: tuple[str, ...] = ("trace", "median")     # MP noise variance: 
 BOOT_BLOCK_SENSITIVITY: tuple[int, ...] = (1, 2, 3, 4)   # block lengths for the sensitivity table
 BOOT_COVER_REPS: int = 1000                              # replications in the coverage check
 BOOT_COVER_B: int = 400                                  # bootstrap replications per coverage rep
+
+# 5F block-missingness (late-listing) experiment
+BLOCK_M: list[int] = [5, 10, 15]          # number of late-listed stocks
+BLOCK_F: list[float] = [0.3, 0.5, 0.7]    # fraction of the sample (from the start) that is missing
+BLOCK_SEEDS: int = 50

@@ -219,3 +219,13 @@ def min_eig_ratio(S: np.ndarray) -> float:
     """lambda_min / mean(lambda) = N lambda_min / tr(S) in (-inf, 1]; small means a near-null direction."""
     vals, _ = eig_decompose(S)
     return float(vals[0] / vals.mean())
+
+
+def frobenius_distance(A: np.ndarray, B: np.ndarray) -> float:
+    """Frobenius distance ||A - B||_F = sqrt(sum_ij (a_ij - b_ij)^2).
+
+    For a spectral repair S' = Q diag(l') Q' of S = Q diag(l) Q' (same eigenvectors) this equals the
+    Euclidean distance between the spectra, sqrt(sum_i (l'_i - l_i)^2) -- used as a check in 5F.
+    """
+    d = np.asarray(A, dtype=float) - np.asarray(B, dtype=float)
+    return float(np.sqrt(np.sum(d * d)))

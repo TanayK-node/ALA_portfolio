@@ -145,3 +145,15 @@ def run_5e(common_runs: pd.DataFrame, paired: pd.DataFrame, out_dir: Path | None
     cover.to_csv(out / "bootstrap_coverage_check.csv", index=False)
     fig = plots.fig_paired_differences(paired, out)
     return dict(sensitivity=sens, coverage=cover, figure=fig)
+
+
+def run_5f(returns: pd.DataFrame, out_dir: Path | None = None) -> dict:
+    """5F: late-listing block-missingness experiment on the complete-data returns."""
+    from . import block_missing
+
+    out = _out(out_dir)
+    df = block_missing.run_experiment(returns)
+    summ = block_missing.summarize(df)
+    df.to_csv(out / "block_missing.csv", index=False)
+    summ.to_csv(out / "block_missing_summary.csv", index=False)
+    return dict(runs=df, summary=summ, figure=plots.fig_block_missing_heatmap(summ, out))

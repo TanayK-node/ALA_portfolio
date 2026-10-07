@@ -346,6 +346,33 @@ def fig_paired_differences(paired: pd.DataFrame, out_dir: Path, name: str = "fig
     return _save(fig, name, out_dir)
 
 
+def fig_block_missing_heatmap(summary: pd.DataFrame, out_dir: Path, name: str = "fig_block_missing_heatmap.png") -> Path:
+    """P5-F. Heatmap of the non-PSD rate of the pairwise-complete covariance over (m late stocks, fraction f)."""
+    from matplotlib.colors import LinearSegmentedColormap
+
+    _style()
+    ms, fs = sorted(summary.m.unique()), sorted(summary.f.unique())
+    rate = np.array([[summary[(summary.m == m) & (summary.f == f)].non_psd_rate.iloc[0] for f in fs] for m in ms])
+    cnt = np.array([[summary[(summary.m == m) & (summary.f == f)].non_psd.iloc[0] for f in fs] for m in ms])
+    runs = int(summary.runs.iloc[0])
+    cmap = LinearSegmentedColormap.from_list("blue_seq", ["#cde2fb", "#6da7ec", "#2a78d6", "#184f95", "#0d366b"])
+    fig, ax = plt.subplots(figsize=(6.2, 4.4))
+    im = ax.imshow(rate, cmap=cmap, vmin=0, vmax=1, aspect="auto", origin="lower")
+    for i in range(len(ms)):
+        for j in range(len(fs)):
+            ax.text(j, i, f"{rate[i, j]:.0%}\n({cnt[i, j]}/{runs})", ha="center", va="center",
+                    color="#ffffff" if rate[i, j] > 0.55 else INK, fontsize=10)
+    ax.set_xticks(range(len(fs)), [f"{f:.0%}" for f in fs])
+    ax.set_yticks(range(len(ms)), [str(m) for m in ms])
+    ax.set_xlabel("fraction of the sample missing (late listing)")
+    ax.set_ylabel("number of late-listed stocks m")
+    ax.grid(False)
+    ax.set_title("Non-PSD rate of pairwise-complete covariance")
+    fig.colorbar(im, ax=ax, label="share of seeds with a negative eigenvalue")
+    fig.tight_layout()
+    return _save(fig, name, out_dir)
+
+
 def _sweep_axes(title: str):
     _style()
     fig, axes = plt.subplots(2, 2, figsize=(11, 7), sharex=True)
