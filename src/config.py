@@ -79,3 +79,7 @@ MC_T_DF: int = 5                 # degrees of freedom of the Student-t scenario
 MC_Z_TOL: float = 3.0            # "matches" = |MC mean - theory| <= 3 Monte Carlo standard errors
 MC_KS_ALPHA: float = 0.01        # exact-distribution KS check flags a mismatch if p < 0.01
 THEORY_DRAWS: int = 400_000      # draws from the exact chi-square representation
+
+# 5D sensitivity sweeps
+CLIP_SWEEP: list[float] = [0.01, 0.05, 0.10, 0.25, 0.50]   # eps = fraction * tr(S)/N
+MP_SIGMA2_RULES: tuple[str, ...] = ("trace", "median")     # MP noise variance: tr(S)/N or median eigenvalue

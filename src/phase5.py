@@ -119,3 +119,14 @@ def run_5c(returns: pd.DataFrame, out_dir: Path | None = None) -> dict:
     fig = plots.fig_predictor_forest(tests, out)
     nruns = {d: runs[d][runs[d].constraint == "unconstrained"].groupby("window").size().to_dict() for d in runs}
     return dict(tests=tests, verdicts=ver, figure=fig, runs_per_window=nruns)
+
+
+def run_5d(returns: pd.DataFrame, out_dir: Path | None = None) -> dict:
+    """5D: clipping-floor and MP-sigma^2 sensitivity sweeps (common-OOS design)."""
+    from . import sweeps
+
+    out = _out(out_dir)
+    clip, mp = sweeps.run_clip_sweep(returns), sweeps.run_mp_sweep(returns)
+    clip.to_csv(out / "sweep_clip.csv", index=False)
+    mp.to_csv(out / "sweep_mp.csv", index=False)
+    return dict(clip=clip, mp=mp, fig_clip=plots.fig_sweep_clip(clip, out), fig_mp=plots.fig_sweep_mp(mp, out))

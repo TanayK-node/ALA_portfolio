@@ -311,6 +311,61 @@ def fig_theory_vs_empirical(table: pd.DataFrame, out_dir: Path,
     return _save(fig, name, out_dir)
 
 
+def _sweep_axes(title: str):
+    _style()
+    fig, axes = plt.subplots(2, 2, figsize=(11, 7), sharex=True)
+    fig.suptitle(title, x=0.01, ha="left", fontsize=11)
+    return fig, axes
+
+
+def _finish_sweep(fig, axes, pos, name: str, out_dir: Path) -> Path:
+    for r, ylabel in enumerate(("mean risk gap (pts, annualised)", "mean realised risk (%, annualised)")):
+        axes[r, 0].set_ylabel(ylabel)
+    for ax, cons in zip(axes[0], config.CONSTRAINTS):
+        ax.set_title(cons.replace("_", "-"))
+    for ax in axes[1]:
+        ax.set_xticks(list(pos.values()), [str(w) for w in config.WINDOWS])
+        ax.set_xlabel("training window (days)")
+    h, l = axes[0, 0].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", ncol=len(l), fontsize=8.5, bbox_to_anchor=(0.5, -0.02))
+    fig.tight_layout()
+    return _save(fig, name, out_dir)
+
+
+def fig_sweep_clip(sweep: pd.DataFrame, out_dir: Path, name: str = "fig_sweep_clip.png") -> Path:
+    """P5-D. Clipping-floor sweep: gap and realised risk vs window, one line per floor fraction (raw dashed)."""
+    ramp = ["#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281"]  # validated 5-step ordinal blue
+    fig, axes = _sweep_axes("Eigenvalue-clipping floor sweep (common OOS periods); a-priori setting = 0.10")
+    pos = {w: i for i, w in enumerate(config.WINDOWS)}
+    fracs = sorted(f for f in sweep.eps_fraction.unique() if f > 0)
+    for c, cons in enumerate(config.CONSTRAINTS):
+        for r, (col, scale) in enumerate((("risk_gap_mean", 100), ("realized_risk_mean", 100))):
+            ax = axes[r, c]
+            b = sweep[(sweep.constraint == cons) & (sweep.eps_fraction == 0)].sort_values("window")
+            ax.plot(b.window.map(pos), b[col] * scale, color=INK, ls=(0, (4, 3)), lw=1.3, zorder=5,
+                    label="raw (= floor 0.01 where nothing is clipped)")
+            for f, colr in zip(fracs, ramp):
+                d = sweep[(sweep.constraint == cons) & (sweep.eps_fraction == f)].sort_values("window")
+                ax.plot(d.window.map(pos), d[col] * scale, color=colr, marker="o", ms=4.5, label=f"floor = {f:g} · tr(S)/N")
+    return _finish_sweep(fig, axes, pos, name, out_dir)
+
+
+def fig_sweep_mp(sweep: pd.DataFrame, out_dir: Path, name: str = "fig_sweep_mp.png") -> Path:
+    """P5-D. MP noise-variance sweep: sigma^2 = tr(S)/N (solid) vs median eigenvalue (dashed), raw in blue."""
+    fig, axes = _sweep_axes("Marchenko-Pastur noise-variance sweep (common OOS periods)")
+    pos = {w: i for i, w in enumerate(config.WINDOWS)}
+    style = {"raw": (METHOD_COLOR["raw"], "-", "o", "raw"), "trace": (METHOD_COLOR["mp"], "-", "^", "MP, σ² = tr(S)/N (a priori)"),
+             "median": (METHOD_COLOR["mp"], "--", "v", "MP, σ² = median eigenvalue")}
+    for c, cons in enumerate(config.CONSTRAINTS):
+        for r, col in enumerate(("risk_gap_mean", "realized_risk_mean")):
+            ax = axes[r, c]
+            for rule, (colr, ls, mk, lab) in style.items():
+                d = sweep[(sweep.constraint == cons) & (sweep.sigma2_rule == rule)].sort_values("window")
+                ax.plot(d.window.map(pos), d[col] * 100, color=colr, ls=ls, marker=mk,
+                        mfc=colr if ls == "-" else SURFACE, label=lab)
+    return _finish_sweep(fig, axes, pos, name, out_dir)
+
+
 PRED_LABEL = {"exposure_k1": "exposure score k=1", "exposure_k3": "exposure score k=3",
               "exposure_k5": "exposure score k=5", "log_cond": "log condition number",
               "eff_rank": "effective rank", "lam_ratio": "λmin / mean λ", "max_abs_weight": "max |w|"}

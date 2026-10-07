@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import itertools
 import logging
-from typing import Sequence
+from typing import Callable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -69,14 +69,21 @@ def run_backtest(returns: pd.DataFrame, windows: list[int] = config.WINDOWS,
                  horizon: int = config.HORIZON, step: int = config.STEP,
                  methods: tuple[str, ...] = config.METHODS,
                  constraints: tuple[str, ...] = config.CONSTRAINTS,
-                 origins: Sequence[int] | None = None) -> pd.DataFrame:
+                 origins: Sequence[int] | None = None,
+                 cov_fn: Callable[[pd.DataFrame], dict[str, tuple[np.ndarray, float]]] | None = None
+                 ) -> pd.DataFrame:
     """Run the full rolling backtest; one row per (window, origin, method, constraint).
 
     By default each window W uses its own origins ``range(W, T-H+1, step)`` (the
     original per-window design). If ``origins`` is given, *every* window uses
     exactly that sequence (each must satisfy W <= o <= T-H); see
     ``run_backtest_common_oos``.
+
+    ``cov_fn(train) -> {method: (Sigma_hat, n_adjusted)}`` replaces the default
+    ``estimate_covariances`` (used by the sensitivity sweeps); it must contain ``"raw"``
+    because the exposure diagnostics are measured in the raw window's eigenbasis.
     """
+    cov_fn = estimate_covariances if cov_fn is None else cov_fn
     R = returns
     T, N = R.shape
     prev_w: dict[tuple, np.ndarray] = {}
@@ -89,7 +96,7 @@ def run_backtest(returns: pd.DataFrame, windows: list[int] = config.WINDOWS,
             log.warning("window %d: not enough data for any run", W)
         for o in w_origins:
             train, test = R.iloc[o - W:o], R.iloc[o:o + horizon]
-            covs = estimate_covariances(train)
+            covs = cov_fn(train)
             S_raw = covs["raw"][0]
             for method, constraint in itertools.product(methods, constraints):
                 S_hat, n_adj = covs[method]
