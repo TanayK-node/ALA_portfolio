@@ -1,0 +1,26 @@
+{
+  "experiment_id": "J-KURTOSIS-EVAL",
+  "timestamp_utc": "2026-11-03T04:51:11+00:00",
+  "git_commit": "0d94592c122e13665651fd3fd338e40dd729676b+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "config": "configs/journal_kurtosis.yaml",
+  "data_files": [
+    "data/prices_2011_2026.csv"
+  ],
+  "status": "success",
+  "cells": 34,
+  "D1_share_lower": 0.9705882352941176,
+  "D1_pass": true,
+  "D2_share_ci": 0.0,
+  "D2_pass": false,
+  "D3_median_high_vol": 0.004064552054003856,
+  "D3_pass": true,
+  "D4_share_robust": 0.0,
+  "D4_pass": false,
+  "supported": false
+}

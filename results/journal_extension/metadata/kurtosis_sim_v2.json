@@ -1,0 +1,22 @@
+{
+  "experiment_id": "J-KURTOSIS-SIM-v2",
+  "timestamp_utc": "2026-11-03T04:51:04+00:00",
+  "git_commit": "0d94592c122e13665651fd3fd338e40dd729676b+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "config": "configs/journal_kurtosis.yaml",
+  "reps": 2000,
+  "seed": 20261104,
+  "cells": 162,
+  "status": "success",
+  "S1_ratio_abs_bias": 0.49393029055304083,
+  "S2_share_no_harm": 0.8888888888888888,
+  "S3_share_lower_qlike": 0.7407407407407407,
+  "S1_pass": true,
+  "S2_pass": false,
+  "S3_pass": true
+}

@@ -67,9 +67,19 @@ def build(out_root: Path) -> dict[str, pd.DataFrame]:
         cells=("delta", "size"), c_qlike_lower=("delta", lambda x: int((x < 0).sum())), ci_below_zero=("hi", lambda x: int((x < 0).sum())),
         mean_qlike_diff=("delta", "mean"), vr_c=("vr_c", "mean"), vr_c_qlike=("vr_cq", "mean"))
 
+    cv = pd.read_csv(R / "conformal" / "conformal_verdict.csv")
+    tabs["T11_conformal_coverage"] = cv[["level", "adequate_cells", "mean_cov_gauss", "mean_cov_pooled", "mean_cov_vol", "C1_share_within_0p05",
+                                         "C2_mean_gap", "C3_share_beats_gauss", "vol_beats_pooled_share"]]
+    kv = pd.read_csv(R / "simulations" / "kurtosis_validation_v2.csv")
+    tabs["T12_kurtosis_simulation"] = kv.groupby("scenario", as_index=False)[["beta_mean", "bias_c", "bias_kc", "qlike_cq", "qlike_kcq", "vr_cq", "vr_kcq"]].mean()
+    ke = pd.read_csv(R / "kurtosis" / "kurtosis_vs_cqlike.csv")
+    tabs["T13_kurtosis_market"] = ke.groupby("W", as_index=False).agg(
+        cells=("delta", "size"), beta_hat=("beta_mean", "mean"), lower_qlike=("delta", lambda x: int((x < 0).sum())), ci_below_zero=("hi", lambda x: int((x < 0).sum())),
+        mean_qlike_diff=("delta", "mean"), vr_c_qlike=("vr_cq", "mean"), vr_kappa=("vr_kcq", "mean"))
+
     for name, df in tabs.items():
         df = df.copy()
-        for c in ("W", "periods", "cells", "n", "comparisons", "c_qlike_lower", "ci_below_zero"):
+        for c in ("W", "periods", "cells", "n", "comparisons", "c_qlike_lower", "ci_below_zero", "adequate_cells", "lower_qlike"):
             if c in df.columns and pd.api.types.is_numeric_dtype(df[c]):
                 df[c] = df[c].round().astype(int)
         tabs[name] = df

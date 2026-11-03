@@ -185,6 +185,170 @@ def cqlike_check() -> None:
     print("cqlike_check done ->", d)
 
 
+def conformal_stage() -> None:
+    """Conformal vs Gaussian-theory prediction intervals for realised variance (configs/journal_conformal.yaml)."""
+    from src.journal import conformal, intervals, regimes
+    d = OUT / "conformal"
+    d.mkdir(parents=True, exist_ok=True)
+    rng = np.random.default_rng(config.SEED)
+    rows = []
+    for name in ("hist_A", "ext_A", "ext_B", "ext_AB"):
+        R = _sample_returns(name)
+        N = R.shape[1]
+        for H in (20, 60):
+            fc = pd.read_csv(OUT / "extended" / f"forecasts_{name}_H{H}.csv")
+            L = 5 if H == 20 else 3
+            origins = sorted(fc.origin.unique())
+            grp = regimes.label_origins(R, origins, H).set_index("origin").vol_regime.loc[origins].to_numpy()
+            for W in sorted(fc.window.unique()):
+                g = fc[fc.window == W].set_index("origin")
+                cq = g[g.forecast == "raw_corrected_qlike"].loc[origins]
+                cc = g[g.forecast == "raw_corrected"].loc[origins]
+                v, h = cq.v.to_numpy(), cq.h.to_numpy()
+                y = np.log(v)
+                rho = np.log(v / h)
+                for lvl in (0.8, 0.9):
+                    a = 1 - lvl
+                    lo_p, hi_p, ok = conformal.conformal_bounds(rho, a)
+                    lo_v, hi_v, _ = conformal.conformal_bounds(rho, a, groups=grp)
+                    ql, qh = intervals.ratio_quantiles(N, int(W), H, [a / 2, 1 - a / 2], seed=config.SEED)
+                    shift = np.log(cc.h.to_numpy() / h)                       # log(h_c / h_cq): re-centre Gaussian quantiles on the c_QLIKE forecast
+                    lo_g, hi_g = np.log(h) + np.log(ql) + 0 * shift - np.log(c_ratio := forecast.c_qlike(N, int(W)) / forecast.c_gauss(N, int(W))), \
+                        np.log(h) + np.log(qh) - np.log(c_ratio)
+                    rho_c = np.log(v / cc.h.to_numpy())
+                    lo_c, hi_c, _ = conformal.conformal_bounds(rho_c, a)
+                    variants = {"gauss": (lo_g, hi_g), "conformal_pooled": (np.log(h) + lo_p, np.log(h) + hi_p),
+                                "conformal_vol": (np.log(h) + lo_v, np.log(h) + hi_v),
+                                "conformal_pooled_c_centre": (np.log(cc.h.to_numpy()) + lo_c, np.log(cc.h.to_numpy()) + hi_c)}
+                    for vn, (l, u) in variants.items():
+                        m = ok
+                        hit = ((y >= l) & (y <= u))[m].astype(float)
+                        idx = inference.moving_block_indices(len(hit), L, 1000, rng)
+                        boot = hit[idx[:, :len(hit)]].mean(axis=1) if len(hit) else np.array([np.nan])
+                        rows.append(dict(sample=name, H=H, W=int(W), level=lvl, variant=vn, n_eval=int(m.sum()),
+                                         coverage=float(hit.mean()) if len(hit) else np.nan,
+                                         lo=float(np.quantile(boot, .025)), hi=float(np.quantile(boot, .975)),
+                                         width=float((u - l)[m].mean()) if m.any() else np.nan,
+                                         score=float(conformal.interval_score(y[m], l[m], u[m], a).mean()) if m.any() else np.nan))
+    df = pd.DataFrame(rows)
+    df.to_csv(d / "conformal_intervals.csv", index=False)
+    a = df[df.n_eval >= 20]
+    ver = []
+    for lvl in (0.8, 0.9):
+        pv = a[a.level == lvl].pivot_table(index=["sample", "H", "W"], columns="variant", values=["coverage", "score"])
+        cp = pv["coverage"]["conformal_pooled"]
+        ver.append(dict(level=lvl, adequate_cells=len(cp), mean_cov_pooled=cp.mean(), mean_cov_vol=pv["coverage"]["conformal_vol"].mean(),
+                        mean_cov_gauss=pv["coverage"]["gauss"].mean(),
+                        C1_share_within_0p05=float(((cp - lvl).abs() <= 0.05).mean()), C1_pass=bool(((cp - lvl).abs() <= 0.05).mean() >= 0.75),
+                        C2_mean_gap=float(cp.mean() - lvl), C2_pass=bool(abs(cp.mean() - lvl) <= 0.03),
+                        C3_share_beats_gauss=float((pv["score"]["conformal_pooled"] < pv["score"]["gauss"]).mean()),
+                        C3_pass=bool((pv["score"]["conformal_pooled"] < pv["score"]["gauss"]).mean() >= 0.75),
+                        vol_beats_pooled_share=float((pv["score"]["conformal_vol"] < pv["score"]["conformal_pooled"]).mean()),
+                        vol_share_within_0p05=float(((pv["coverage"]["conformal_vol"] - lvl).abs() <= 0.05).mean())))
+    pd.DataFrame(ver).to_csv(d / "conformal_verdict.csv", index=False)
+    runmeta.write_meta(OUT / "metadata" / "conformal.json", "J-CONFORMAL", ROOT, config="configs/journal_conformal.yaml",
+                       data_files=["data/prices_2011_2026.csv"], status="success")
+    print("conformal done ->", d, len(df), "rows")
+
+
+def kurtosis_sim(reps: int = 2000, version: str = "v2") -> None:
+    """Simulation checks S1-S3 of configs/journal_kurtosis.yaml (beta_hat estimated from each training window)."""
+    from src.journal import kurtosis, sim_dynamic
+    d = OUT / "simulations"
+    scen = ["gaussian", "t5", "t8", "t15", "skew4", "skew1", "skewt8", "garch", "regime"]
+    seed, rows, t0 = 20261104, [], time.time()
+    H = 60
+    for st in scenarios.STRUCTURES:
+        for sc in scen:
+            for N in (10, 30):
+                for T in (60, 120, 250):
+                    ss = np.random.SeedSequence([seed, scenarios.STRUCTURES.index(st), scen.index(sc), N, T])
+                    rng = np.random.default_rng(ss)
+                    Sigma = scenarios.make_sigma(st, N)
+                    c, cq = forecast.c_gauss(N, T), forecast.c_qlike(N, T)
+                    recs = []
+                    for lo in range(0, reps, 250):
+                        b = min(250, reps - lo)
+                        if sc in ("garch", "regime"):
+                            X, _ = sim_dynamic.simulate(sc, Sigma, b, T + H, rng)
+                        else:
+                            X = scenarios.draw(sc, b, T + H, Sigma, rng)
+                        Xtr, Xte = X[:, :T], X[:, T:]
+                        pred, true, real = gmv_stats(Xtr, Xte, Sigma)
+                        bh = kurtosis.mardia_ratio_batch(Xtr) if version == "v1" else kurtosis.ew_kurtosis_ratio_batch(Xtr)
+                        recs.append(pd.DataFrame(dict(pred=pred, true=true, real=real, beta=bh)))
+                    g = pd.concat(recs, ignore_index=True)
+                    g = g[(g.pred > 0) & (g.real > 0)]
+                    m = kurtosis.multiplier(g.beta.to_numpy(), N, T)
+                    o = dict(structure=st, scenario=sc, N=N, T=T, n=len(g), beta_mean=float(g.beta.mean()), m_mean=float(np.mean(m)))
+                    for nm, f in (("c", c), ("cq", cq), ("kc", c * m), ("kcq", cq * m)):
+                        o[f"bias_{nm}"] = float(((f * g.pred - g.true).mean()) / g.true.mean())
+                        o[f"qlike_{nm}"] = float(metrics.qlike(g.real.to_numpy(), f * g.pred.to_numpy()).mean())
+                        o[f"vr_{nm}"] = float(g.real.mean() / (f * g.pred).mean())
+                    rows.append(o)
+        print(f"  {st} done ({time.time() - t0:.0f}s)", flush=True)
+    df = pd.DataFrame(rows)
+    sfx = "" if version == "v1" else "_v2"
+    df.to_csv(d / f"kurtosis_validation{sfx}.csv", index=False)
+    fam = df[df.scenario.isin(["t5", "t8", "t15"])]
+    gz = df[df.scenario == "gaussian"]
+    hs = df[df.scenario.isin(["skewt8", "garch", "regime"])]
+    v = dict(S1_ratio_abs_bias=float(fam.bias_kc.abs().mean() / fam.bias_c.abs().mean()),
+             S2_share_no_harm=float((gz.bias_kc.abs() <= gz.bias_c.abs() + 0.02).mean()),
+             S3_share_lower_qlike=float((hs.qlike_kcq < hs.qlike_cq).mean()))
+    v["S1_pass"], v["S2_pass"], v["S3_pass"] = v["S1_ratio_abs_bias"] <= 0.5, v["S2_share_no_harm"] >= 0.9, v["S3_share_lower_qlike"] >= 0.6
+    pd.DataFrame([v]).to_csv(d / f"kurtosis_sim_verdict{sfx}.csv", index=False)
+    runmeta.write_meta(OUT / "metadata" / f"kurtosis_sim_{version}.json", f"J-KURTOSIS-SIM-{version}", ROOT, config="configs/journal_kurtosis.yaml", reps=reps, seed=seed, cells=len(df), status="success", **v)
+    print("kurtosis_sim done ->", v)
+
+
+def kurtosis_eval() -> None:
+    """Market-data evaluation of the kurtosis-aware multiplier, once, as pre-specified in configs/journal_kurtosis.yaml."""
+    from src.journal import kurtosis, metrics as M, regimes
+    d = OUT / "kurtosis"
+    d.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for name in ("ext_A", "ext_B", "ext_AB"):
+        R = _sample_returns(name)
+        X = R.to_numpy()
+        N = X.shape[1]
+        for H in (20, 60):
+            fc = pd.read_csv(OUT / "extended" / f"forecasts_{name}_H{H}.csv")
+            L = 5 if H == 20 else 3
+            origins = sorted(fc.origin.unique())
+            hv = regimes.label_origins(R, origins, H).set_index("origin").vol_regime
+            for W in sorted(fc.window.unique()):
+                g = fc[(fc.window == W) & (fc.forecast == "raw_corrected_qlike")].set_index("origin").loc[origins]
+                gc = fc[(fc.window == W) & (fc.forecast == "raw_corrected")].set_index("origin").loc[origins]
+                beta = np.array([kurtosis.ew_kurtosis_ratio(X[o - int(W):o]) for o in origins])      # v2 estimator
+                m = kurtosis.multiplier(beta, N, int(W))
+                v = g.v.to_numpy()
+                q0 = M.qlike(v, g.h.to_numpy())
+                q1 = M.qlike(v, m * g.h.to_numpy())
+                qc = M.qlike(v, gc.h.to_numpy())
+                qkc = M.qlike(v, m * gc.h.to_numpy())
+                r = inference.paired_loss_test(q1, q0, block=L)
+                diff = q1 - q0
+                hi = (hv.loc[origins] == "high").to_numpy()
+                keep = np.argsort(diff)[int(np.ceil(0.05 * len(diff))):]           # drop the 5% largest improvements (most negative)
+                rows.append(dict(sample=name, H=H, W=int(W), n=len(origins), beta_mean=float(beta.mean()), m_mean=float(m.mean()),
+                                 q_cq=float(q0.mean()), q_kcq=float(q1.mean()), delta=r.mean_diff, lo=r.lo, hi=r.hi, win=r.win_rate,
+                                 delta_trim=float(diff[keep].mean()), delta_high=float(diff[hi].mean()) if hi.any() else np.nan, n_high=int(hi.sum()),
+                                 delta_kc_vs_c=float((qkc - qc).mean()), vr_cq=float(v.mean() / g.h.mean()), vr_kcq=float(v.mean() / (m * g.h).mean())))
+    df = pd.DataFrame(rows)
+    df.to_csv(d / "kurtosis_vs_cqlike.csv", index=False)
+    lower = df.delta < 0
+    ver = dict(cells=len(df), D1_share_lower=float(lower.mean()), D1_pass=bool(lower.mean() >= 0.75),
+               D2_share_ci=float((df.hi < 0).mean()), D2_pass=bool((df.hi < 0).mean() >= 0.25),
+               D3_median_high_vol=float(df.delta_high.median()), D3_pass=bool(df.delta_high.median() <= 0.02),
+               D4_share_robust=float((df.delta_trim[lower] < 0).mean()), D4_pass=bool((df.delta_trim[lower] < 0).mean() >= 0.75))
+    ver["supported"] = all(ver[k] for k in ("D1_pass", "D2_pass", "D3_pass", "D4_pass"))
+    pd.DataFrame([ver]).to_csv(d / "kurtosis_verdict.csv", index=False)
+    runmeta.write_meta(OUT / "metadata" / "kurtosis_eval.json", "J-KURTOSIS-EVAL", ROOT, config="configs/journal_kurtosis.yaml",
+                       data_files=["data/prices_2011_2026.csv"], status="success", **{k: (v if not isinstance(v, (np.bool_,)) else bool(v)) for k, v in ver.items()})
+    print("kurtosis_eval done ->", ver)
+
+
 PAPER_ALTS = ["raw", "clipped", "mp", "ledoit_wolf", "nl", "bps_verbatim"]   # BPS = verbatim Bodnar-Parolya-Schmid (2018) intensity
 EXT_CSV = ROOT / "data" / "prices_2011_2026.csv"
 
@@ -573,14 +737,21 @@ def predictors_stage(n_sim: int = 2000) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check"])
+    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check", "conformal", "kurtosis_sim", "kurtosis_eval"])
     ap.add_argument("--reps", type=int, default=4000)
+    ap.add_argument("--version", default="v2")
     ap.add_argument("--smoke", action="store_true")
     a = ap.parse_args()
     if a.stage == "baseline":
         baseline()
     elif a.stage == "extended":
         extended()
+    elif a.stage == "kurtosis_eval":
+        kurtosis_eval()
+    elif a.stage == "kurtosis_sim":
+        kurtosis_sim(version=a.version)
+    elif a.stage == "conformal":
+        conformal_stage()
     elif a.stage == "cqlike_check":
         cqlike_check()
     elif a.stage == "validate_skew":

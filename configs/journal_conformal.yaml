@@ -1,0 +1,24 @@
+experiment_id: J-CONFORMAL
+description: >
+  Distribution-free prediction intervals for the realised H-day variance around the corrected forecast, using only matured past
+  ratios (split-conformal style, expanding calibration set). Criteria were written BEFORE the first run.
+center_forecast: raw_corrected_qlike        # h = c_QLIKE * plug-in; the c-centred variant is reported as sensitivity
+score: rho = log(v / h)                     # v = realised sample variance of the H-day block
+levels: [0.8, 0.9]                          # equal-tailed central intervals
+labels: only origins whose test block ended before the current origin (stride = H, previous origin matures exactly at the next)
+interval: [h * exp(rho_(lo)), h * exp(rho_(hi))], rho_(r) = r-th smallest past score, lo rank = floor((n+1) a/2), hi rank = ceil((n+1)(1 - a/2)), a = 1 - level;
+          undefined (not evaluated) if a rank falls outside 1..n
+warm_up_origins: 20                          # both levels become defined at n = 19; same evaluation origins for both levels
+variants:
+  gauss: exact-law intervals of Section 2 (quantiles of R G / (c Q), rescaled by c / c_QLIKE for the centre)
+  conformal_pooled: all past matured scores                                       # PRIMARY
+  conformal_vol: past scores from the same causal trailing-60-day volatility tercile, if >= 19 of them, else pooled      # SECONDARY
+primary_cells: universes hist_A, ext_A, ext_B, ext_AB; H in {20, 60}; all feasible windows; a cell is adequate if >= 20 evaluated origins
+metrics: coverage, block-bootstrap 95% interval (moving block, L = 5 for H = 20, 3 for H = 60, B = 1000), mean log width log(hi/lo), interval score on log scale
+         IS_a = (u - l) + (2/a) (l - y)+ + (2/a) (y - u)+, y = log v, l = log lo, u = log hi
+supported_criteria:                          # ALL must hold for conformal_pooled to be reported as a working method
+  C1_cell_tolerance: coverage within 0.05 of nominal in >= 75% of adequate cells, at each level
+  C2_mean_coverage: mean coverage over adequate cells within 0.03 of nominal, at each level
+  C3_beats_gauss: lower mean interval score than gauss in >= 75% of adequate cells, at each level
+secondary_criteria: conformal_vol is called useful only if it has lower interval score than conformal_pooled in >= 60% of adequate cells and still meets C1, C2
+notes: cells share origins (nested universes, shared windows) and are dependent, so shares are descriptive; coverage is conditional on exchangeability of past scores, which temporal dependence violates - that is the thing being tested

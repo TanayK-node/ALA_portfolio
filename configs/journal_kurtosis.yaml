@@ -1,0 +1,33 @@
+experiment_id: J-KURTOSIS
+description: >
+  Kurtosis-aware multiplier m(beta_hat, N/T) = clip(beta_hat, 1, 4) ** phi(N/T), phi(x) = P x / (1 + Q x), applied on top of the Gaussian constants:
+  kappa_c = c * m (level-oriented) and kappa_cq = c_QLIKE * m (QLIKE-oriented, PRIMARY). beta_hat = Mardia multivariate kurtosis of the training window,
+  mean of squared in-sample Mahalanobis distances / (N(N+2)), divided by its exact Gaussian expectation (Beta law of the in-sample distances), so beta_hat ~ 1 under normality.
+fit: P and Q were fitted ONCE on the Student-t simulations (t5, t8, t15; Mardia beta = (nu-2)/(nu-4) = 3, 1.5, 13/11) of simulations/gaussian_t_validation.csv by least squares on log(1/(1+level_bias_c)),
+     with true beta (not beta_hat); P = 1.8035, Q = 2.6733. No market data were used for the fit. Frozen here before any evaluation of beta_hat.
+clip_beta: [1.0, 4.0]                  # never deflate the Gaussian constant; cap limits the damage of a noisy estimate
+simulation_checks:                      # new simulations with beta_hat estimated from each training window; N in {10, 30}, T in {60, 120, 250}, structures equicorr/factor/hetero
+  in_family: [gaussian, t5, t8, t15]
+  held_out: [skew4, skew1, skewt8, garch, regime]
+  S1_in_family_fit: mean |level bias| of kappa_c over t5/t8/t15 cells at most 50% of that of c
+  S2_no_harm: in Gaussian cells, |level bias| of kappa_c <= |level bias| of c + 0.02 in >= 90% of cells
+  S3_held_out_benefit: in skewt8, garch and regime cells, kappa_cq has lower mean 60-day-block QLIKE than c_QLIKE in >= 60% of cells
+market_data_evaluation:                 # evaluated ONCE on the stored forecasts; no tuning of P, Q, clip afterwards
+  cells: universes ext_A, ext_B, ext_AB; H in {20, 60}; all feasible windows (same primary cells as the second stage)
+  comparison: mean QLIKE of m * h_cQLIKE versus h_cQLIKE, same origins, moving block bootstrap (L = 5 for H = 20, 3 for H = 60, B = 2000)
+  supported_criteria:                   # ALL must hold
+    D1_lower_qlike_share: 0.75          # lower mean QLIKE in >= 75% of cells
+    D2_ci_share: 0.25                   # interval excludes 0 favourably in >= 25% of cells
+    D3_high_vol: median over cells of (mean QLIKE difference on high-volatility origins) <= 0.02
+    D4_not_driven_by_few: among cells with lower mean QLIKE, >= 75% remain lower after dropping the 5% of origins with the largest improvement
+  reported_not_used_for_selection: the c-based variant kappa_c, the realised/forecast ratio of means, results by window and horizon
+notes: cells share origins (nested universes, windows) so shares are descriptive, not tests.
+
+revision_v2:       # recorded 2026-11-04 AFTER simulation check v1 and BEFORE any market-data evaluation
+  v1_result: >
+    With the Mardia estimator, S2 (no harm) and S3 (held-out benefit) passed (1.00, 0.70) but S1 failed: mean |level bias| of kappa_c was 0.75 of that of c (needed <= 0.50).
+    Diagnosis: in-sample Mahalanobis distances are compressed when N/T is large, so beta_hat is biased towards 1 exactly where the correction matters
+    (t8, N=30, T=60: mean beta_hat 1.05 vs true 1.50).  Output kept in simulations/kurtosis_validation.csv, kurtosis_sim_verdict.csv.
+  v2_change: beta_hat is replaced by the kurtosis of the EQUAL-WEIGHT portfolio return of the training window, m4/m2^2, divided by its Gaussian expectation 3(T-1)/(T+1).
+             For elliptical returns every linear combination has kurtosis 3*beta, so the fitted multiplier (P, Q, clip) is unchanged. P, Q and the clip are NOT refitted.
+  rule: this is the only revision; if v2 fails S1-S3 too, the market-data evaluation is still run once and reported as a failed method.
