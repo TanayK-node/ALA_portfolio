@@ -1,0 +1,22 @@
+experiment_id: J-SECOND-STAGE
+description: >
+  Prequential second-stage calibration h2 = g(x_t) * h_G, h_G = c(N,T) * plug-in raw GMV forecast. Criteria below were written BEFORE
+  the first run and are the author's choices (the specification gives no numeric thresholds); change them only with a recorded reason.
+models: [gaussian, constant, tercile, ridge]
+labels: only forecast/target pairs whose test block ended before the current origin (stride = H, so the previous origin's label matures exactly at the next origin)
+warm_up_origins: 10                # all models use g = 1 for the first 10 origins of each cell; evaluation starts afterwards
+clip_g: [0.25, 4.0]
+constant: g = mean over past labels of v/h_G (the QLIKE-optimal constant multiplier)
+tercile: g = mean of past v/h_G within the same causal volatility regime (needs >= 3 past labels in it, else the constant)
+ridge: {target: log(v/h_G), features: [log_rv20, pc1_share, avg_corr, kurt, lag_err], standardised on past data, lambda: 5, back-transform: exp(yhat) * mean(exp(past residuals))}
+sensitivity_only: {ridge_lambda: [1, 5, 25]}      # reported, never used to select
+primary_cells: universes ext_A, ext_B, ext_AB; horizons 20 and 60; all feasible windows
+retain_criteria:                    # ALL must hold for a model to be called supported
+  C1_lower_qlike_share: 0.75        # mean QLIKE below the Gaussian correction in >= 75% of primary cells
+  C2_ci_share: 0.25                 # paired interval excludes 0 (favouring the model) in >= 25% of primary cells
+  C3_lower_mace_share: 0.75         # mean absolute log calibration error below Gaussian in >= 75% of cells
+  C4_breadth: share of cells with lower QLIKE >= 0.5 within each universe AND each horizon
+  C5_not_few_periods: among cells with lower mean QLIKE, >= 75% still lower after dropping the 5% origins with the largest improvement
+  C6_high_vol: median over cells of (mean QLIKE difference vs Gaussian on high-volatility origins) <= 0.02
+  C7_beats_constant: model must beat the constant multiplier (lower QLIKE) in >= 50% of cells (applies to tercile and ridge)
+inference: moving block bootstrap, block = max(1, round(n^(1/3))), B = 2000, seed 42; cells are dependent (shared period, nested universes) so shares are descriptive, not tests

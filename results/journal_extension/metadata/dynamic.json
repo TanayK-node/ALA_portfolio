@@ -1,0 +1,24 @@
+{
+  "experiment_id": "J-DYNAMIC-MC",
+  "timestamp_utc": "2026-11-02T17:43:02+00:00",
+  "git_commit": "d8437d3643f52eb037509c4aaeccbcdf12323996+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "reps": 3000,
+  "seed": 20261103,
+  "rows": 120,
+  "garch": {
+    "a": 0.1,
+    "b": 0.85
+  },
+  "regime": {
+    "p_stay_calm": 0.99,
+    "p_stay_stress": 0.95,
+    "m_stress": 2.5
+  },
+  "status": "success"
+}

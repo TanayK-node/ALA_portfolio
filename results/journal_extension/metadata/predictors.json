@@ -1,0 +1,25 @@
+{
+  "experiment_id": "J-PREDICTORS-HIST",
+  "timestamp_utc": "2026-11-02T18:20:28+00:00",
+  "git_commit": "d8437d3643f52eb037509c4aaeccbcdf12323996+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "sample": "hist_A",
+  "runs_per_window": {
+    "60": 41,
+    "90": 27,
+    "120": 20,
+    "250": 9,
+    "500": 4
+  },
+  "n_sim": 2000,
+  "power_reps": 1000,
+  "window_specific_effect": true,
+  "sim_covariance": "simulate.true_sigma(dev returns), shrink 0.5",
+  "seed": 42,
+  "status": "success"
+}

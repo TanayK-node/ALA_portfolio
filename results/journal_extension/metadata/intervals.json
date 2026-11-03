@@ -1,0 +1,15 @@
+{
+  "experiment_id": "J-INTERVALS",
+  "timestamp_utc": "2026-11-03T04:26:00+00:00",
+  "git_commit": "d8437d3643f52eb037509c4aaeccbcdf12323996+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "data_files": [
+    "data/prices_2011_2026.csv"
+  ],
+  "status": "success"
+}

@@ -1,0 +1,10 @@
+experiment_id: J-BASELINE-DEV
+description: Development-sample (30 Nifty 50 stocks, 2021-2026) rolling-origin forecast comparison; re-implementation of the conference Table II dev rows
+data: data/prices.csv
+windows: [60, 90, 120, 250, 500, 750]
+horizons: [20, 60]
+stride: equals the horizon (non-overlapping test blocks), common origins starting at max(windows)
+realised_proxy: sample          # sample variance (ddof=1) of daily portfolio returns over the test block; mean_square as sensitivity
+data_policies: {P1_existing: "ffill<=3, complete rows (T=1238)", P3_drop_zero_rows: "P1 minus all-stock zero-return vendor-holiday rows"}
+primary_comparison: raw_corrected vs each of raw, clipped, mp, ledoit_wolf (all unconstrained GMV, same origins)
+inference: {bootstrap: moving block, block_length: "max(1, round(n^(1/3)))", B: 2000, alpha: 0.05, seed: 42, multiplicity: Holm within (horizon) over window x alternative}

@@ -298,7 +298,8 @@ def fig_theory_vs_empirical(table: pd.DataFrame, out_dir: Path,
                                                    ("bootstrap", aqua, "^", "MC bootstrap of real returns", 0.04))):
         ax.errorbar(x + off, table[f"mc_{scen}_std_ratio"], yerr=3 * table[f"mc_{scen}_std_ratio_se"],
                     color=col, marker=mk, ls="none", capsize=2, label=lab)
-    err = np.vstack([table.emp_std_ratio - table.emp_std_ratio_lo, table.emp_std_ratio_hi - table.emp_std_ratio])
+    # a percentile interval need not contain the sample mean (few, skewed periods); matplotlib rejects negative half-widths
+    err = np.maximum(np.vstack([table.emp_std_ratio - table.emp_std_ratio_lo, table.emp_std_ratio_hi - table.emp_std_ratio]), 0.0)
     ax.errorbar(x + 0.12, table.emp_std_ratio, yerr=err, color=yellow, marker="D", ls="none", capsize=2,
                 label="measured (common OOS, raw, 95% block bootstrap)")
     ax.axhline(1.0, color=INK2, lw=0.8)

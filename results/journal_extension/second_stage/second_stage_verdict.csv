@@ -1,0 +1,4 @@
+model,cells,share_lower_qlike,share_ci_favours,share_lower_mace,median_d_gaussian,median_d_high_vol,C1_lower_qlike_share,C2_ci_share,C3_lower_mace_share,C4_breadth,C5_not_few_periods,C6_high_vol,C7_beats_constant,supported
+constant,34,0.7058823529411765,0.029411764705882353,0.0,-0.03742616117179308,0.04624426907626805,False,False,False,True,False,False,True,False
+tercile,34,0.6764705882352942,0.029411764705882353,0.0,-0.03196698791188632,0.012532930767954208,False,False,False,True,False,True,False,False
+ridge,34,0.7941176470588235,0.058823529411764705,0.29411764705882354,-0.058079945905048794,0.04489409203812729,True,False,False,True,False,False,True,False

@@ -1,0 +1,17 @@
+{
+  "experiment_id": "J-SURFACE",
+  "timestamp_utc": "2026-11-02T17:43:05+00:00",
+  "git_commit": "d8437d3643f52eb037509c4aaeccbcdf12323996+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "seed": 42,
+  "subsets": 20,
+  "H": 60,
+  "block": 3,
+  "B": 1000,
+  "status": "success"
+}

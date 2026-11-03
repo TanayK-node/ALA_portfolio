@@ -1,0 +1,22 @@
+{
+  "experiment_id": "J-VALIDATE-SKEW",
+  "timestamp_utc": "2026-11-03T04:38:17+00:00",
+  "git_commit": "d8437d3643f52eb037509c4aaeccbcdf12323996+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "reps": 2000,
+  "seed": 20261103,
+  "cells": 360,
+  "scenarios": [
+    "skew4 (gamma k=4: skew 1.0, ex.kurt 1.5)",
+    "skew1 (k=1: skew 2.0, ex.kurt 6)",
+    "skewneg4",
+    "skewt8 (k=4 plus t8 mixing)"
+  ],
+  "max_fail_rate": 0.0,
+  "status": "success"
+}

@@ -1,0 +1,8 @@
+W,ext_comparisons,ext_lower_mean_qlike,ext_ci_below_zero,ext_ci_and_win_rate,ext_significant_losses,dev_comparisons,dev_ci_and_win_rate
+60,36,36,36,36,0,12,5
+90,48,48,48,46,0,12,3
+120,48,48,48,44,0,12,0
+250,48,48,45,11,0,12,0
+500,48,48,29,0,0,12,0
+750,48,48,14,0,5,12,0
+all,276,276,220,137,5,72,8

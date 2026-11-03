@@ -1,0 +1,18 @@
+{
+  "experiment_id": "J-REGIMES",
+  "timestamp_utc": "2026-11-02T17:43:07+00:00",
+  "git_commit": "d8437d3643f52eb037509c4aaeccbcdf12323996+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "thresholds": "terciles of trailing 60d equal-weight vol over rows < 750",
+  "covid_window": [
+    "2020-02-24",
+    "2020-06-30"
+  ],
+  "min_n": 12,
+  "status": "success"
+}

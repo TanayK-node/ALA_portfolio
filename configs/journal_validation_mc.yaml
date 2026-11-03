@@ -1,0 +1,12 @@
+experiment_id: J-VALIDATE-MC
+description: Gaussian validation and distributional-robustness Monte Carlo for the finite-sample correction (known population covariance)
+N: [5, 10, 20, 30, 40, 50]
+T: [60, 90, 120, 250, 500]
+structures: [equicorr, factor, hetero]
+scenarios: [gaussian, t5, t8, t15]     # Student-t scaled to the SAME covariance; df > 4 so 4th moments exist
+horizon_for_future_block_target: 60
+reps: 4000
+seed: 20261102
+validity: T >= N + 5
+acceptance_gaussian: {z_tol: 3.0, note: "same tolerance as conference 5B; no KS here (KS is in 5B and the independent audit)"}
+not_run: [GARCH, regime switching, interval coverage]   # Stage C2

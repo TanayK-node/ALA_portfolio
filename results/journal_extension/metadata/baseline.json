@@ -1,0 +1,16 @@
+{
+  "experiment_id": "J-BASELINE-DEV",
+  "timestamp_utc": "2026-11-02T17:06:37+00:00",
+  "git_commit": "d8437d3643f52eb037509c4aaeccbcdf12323996+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "config": "configs/journal_baseline_dev.yaml",
+  "data_file": "data/prices.csv",
+  "data_sha256": "2b2693a6d7f80574ef449b791ef8902dfa3d8327daade19e116fd211496a1c82",
+  "seed": 42,
+  "status": "success"
+}

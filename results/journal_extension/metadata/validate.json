@@ -1,0 +1,19 @@
+{
+  "experiment_id": "J-VALIDATE-MC",
+  "timestamp_utc": "2026-11-02T17:07:59+00:00",
+  "git_commit": "d8437d3643f52eb037509c4aaeccbcdf12323996+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "config": "configs/journal_validation_mc.yaml",
+  "reps": 4000,
+  "seed": 20261102,
+  "cells": 360,
+  "gaussian_cells": 90,
+  "gaussian_max_abs_z": 2.7020606718417612,
+  "max_fail_rate": 0.0,
+  "status": "success"
+}
