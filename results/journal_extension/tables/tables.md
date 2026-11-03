@@ -169,3 +169,77 @@
 | Kurtosis multiplier: lower QLIKE (cells) | 33 of 34 | 34 of 34 |
 | Kurtosis multiplier: interval below zero (cells) | 0 of 34 | 6 of 34 |
 | Kurtosis multiplier: realised/forecast before -> after | 1.23 -> 1.06 | 1.37 -> 1.20 |
+
+### T15_var_backtest
+
+| market | windows | variant | viol5 | kup5 | viol1 |
+|---|---|---|---|---|---|
+| India | all W | plugin_raw | 0.108 | 0.853 | 0.060 |
+| India | all W | c | 0.058 | 0.529 | 0.023 |
+| India | all W | c_qlike | 0.056 | 0.500 | 0.022 |
+| India | all W | kappa_cq | 0.050 | 0.235 | 0.019 |
+| India | all W | nl | 0.078 | 0.853 | 0.036 |
+| India | all W | ledoit_wolf | 0.081 | 0.824 | 0.038 |
+| India | all W | bps_verbatim | 0.080 | 0.824 | 0.037 |
+| India | all W | equal_weight | 0.055 | 0.324 | 0.021 |
+| India | W<=120 | plugin_raw | 0.157 | 1.000 | 0.096 |
+| India | W<=120 | c | 0.065 | 1.000 | 0.026 |
+| India | W<=120 | c_qlike | 0.062 | 0.938 | 0.024 |
+| India | W<=120 | kappa_cq | 0.054 | 0.125 | 0.020 |
+| India | W<=120 | nl | 0.097 | 1.000 | 0.048 |
+| India | W<=120 | ledoit_wolf | 0.102 | 1.000 | 0.052 |
+| India | W<=120 | bps_verbatim | 0.099 | 1.000 | 0.050 |
+| India | W<=120 | equal_weight | 0.059 | 0.688 | 0.024 |
+| US | all W | plugin_raw | 0.112 | 0.882 | 0.066 |
+| US | all W | c | 0.063 | 0.588 | 0.029 |
+| US | all W | c_qlike | 0.061 | 0.588 | 0.028 |
+| US | all W | kappa_cq | 0.055 | 0.324 | 0.025 |
+| US | all W | nl | 0.080 | 0.824 | 0.041 |
+| US | all W | ledoit_wolf | 0.081 | 0.853 | 0.042 |
+| US | all W | bps_verbatim | 0.079 | 0.824 | 0.041 |
+| US | all W | equal_weight | 0.053 | 0.294 | 0.026 |
+| US | W<=120 | plugin_raw | 0.160 | 1.000 | 0.103 |
+| US | W<=120 | c | 0.072 | 1.000 | 0.033 |
+| US | W<=120 | c_qlike | 0.069 | 1.000 | 0.031 |
+| US | W<=120 | kappa_cq | 0.060 | 0.688 | 0.027 |
+| US | W<=120 | nl | 0.098 | 1.000 | 0.052 |
+| US | W<=120 | ledoit_wolf | 0.099 | 1.000 | 0.054 |
+| US | W<=120 | bps_verbatim | 0.095 | 1.000 | 0.052 |
+| US | W<=120 | equal_weight | 0.059 | 0.562 | 0.027 |
+
+### T16_vol_targeting
+
+| market | windows | variant | vt_abs_log | breach | exposure |
+|---|---|---|---|---|---|
+| India | all W | plugin_raw | 0.413 | 0.549 | 1.723 |
+| India | all W | c | 0.235 | 0.208 | 1.265 |
+| India | all W | c_qlike | 0.234 | 0.198 | 1.251 |
+| India | all W | kappa_cq | 0.249 | 0.162 | 1.192 |
+| India | all W | nl | 0.281 | 0.389 | 1.611 |
+| India | all W | ledoit_wolf | 0.299 | 0.425 | 1.635 |
+| India | all W | bps_verbatim | 0.299 | 0.403 | 1.556 |
+| India | all W | equal_weight | 0.317 | 0.193 | 1.066 |
+| India | W<=120 | plugin_raw | 0.593 | 0.829 | 2.009 |
+| India | W<=120 | c | 0.229 | 0.233 | 1.196 |
+| India | W<=120 | c_qlike | 0.226 | 0.215 | 1.171 |
+| India | W<=120 | kappa_cq | 0.239 | 0.168 | 1.109 |
+| India | W<=120 | nl | 0.322 | 0.535 | 1.775 |
+| India | W<=120 | ledoit_wolf | 0.353 | 0.591 | 1.818 |
+| India | W<=120 | bps_verbatim | 0.348 | 0.546 | 1.670 |
+| India | W<=120 | equal_weight | 0.321 | 0.236 | 1.117 |
+| US | all W | plugin_raw | 0.445 | 0.533 | 1.808 |
+| US | all W | c | 0.288 | 0.253 | 1.348 |
+| US | all W | c_qlike | 0.287 | 0.241 | 1.333 |
+| US | all W | kappa_cq | 0.299 | 0.206 | 1.268 |
+| US | all W | nl | 0.325 | 0.376 | 1.699 |
+| US | all W | ledoit_wolf | 0.335 | 0.384 | 1.717 |
+| US | all W | bps_verbatim | 0.325 | 0.350 | 1.643 |
+| US | all W | equal_weight | 0.381 | 0.189 | 1.184 |
+| US | W<=120 | plugin_raw | 0.611 | 0.816 | 2.136 |
+| US | W<=120 | c | 0.277 | 0.309 | 1.321 |
+| US | W<=120 | c_qlike | 0.273 | 0.285 | 1.294 |
+| US | W<=120 | kappa_cq | 0.280 | 0.241 | 1.223 |
+| US | W<=120 | nl | 0.358 | 0.521 | 1.919 |
+| US | W<=120 | ledoit_wolf | 0.371 | 0.535 | 1.948 |
+| US | W<=120 | bps_verbatim | 0.350 | 0.462 | 1.804 |
+| US | W<=120 | equal_weight | 0.347 | 0.207 | 1.269 |

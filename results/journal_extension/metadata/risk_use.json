@@ -1,0 +1,16 @@
+{
+  "experiment_id": "J-RISK-USE",
+  "timestamp_utc": "2026-11-03T05:39:32+00:00",
+  "git_commit": "d99972dc82c98e227cfd2da86abbbda404ebd903+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "config": "configs/journal_risk_use.yaml",
+  "data_files": [
+    "data/prices_2011_2026.csv"
+  ],
+  "status": "success"
+}

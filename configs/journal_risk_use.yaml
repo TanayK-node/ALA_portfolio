@@ -1,0 +1,25 @@
+experiment_id: J-RISK-USE
+description: >
+  Practitioner-facing evaluation of the calibrated forecasts in two standard risk-management uses: (a) daily value-at-risk backtests and
+  (b) volatility targeting. Written 2026-11-04 BEFORE the first run; applied identically to Indian and US data with all earlier settings
+  (windows, horizons, origins, samples) unchanged. No parameter is tuned on these results.
+forecast_variants:      # daily-variance forecast f * h for the portfolio built from each estimator, h = w' S w on the training window
+  plugin_raw: f = 1
+  c: f = c(N, W)
+  c_qlike: f = c_QLIKE(N, W)                                   # raw minimum-variance portfolio only
+  kappa_cq: f = c_QLIKE * m(beta_hat, N/W)                    # frozen multiplier of configs/journal_kurtosis.yaml (EW-kurtosis estimator)
+  comparators (plug-in, own portfolio and covariance): clipped, mp, ledoit_wolf, nl, bps_verbatim, equal_weight
+var_backtest:
+  rule: daily portfolio return r_t < -z_a * sqrt(f h), normal quantile, zero mean, a in {0.05, 0.01}, every day of every test block
+  tests: Kupiec unconditional-coverage LR (chi2_1), Christoffersen independence LR (chi2_1), pooled over the origins of a cell; reported at 5%
+  cell: (sample, H, W) with at least 1000 test days
+vol_targeting:
+  target: daily volatility 1% (about 16% annualised); exposure s = min(3, 0.01 / sqrt(f h)) held over the block (leverage cap 3, no cash return)
+  metrics: ratio = realised block volatility of s * r / 0.01 (sample std, ddof 1); mean |log ratio|; share of blocks with ratio > 1.25 (breach); mean exposure
+claims:
+  P1: for the 5% VaR, c_QLIKE has a violation rate closer to nominal than plugin_raw in >= 75% of cells with W <= 120 (primary universe-sample cells ext_A, ext_B, ext_AB)
+  P2: for vol targeting, c_QLIKE has lower mean |log ratio| than plugin_raw in >= 75% of cells overall and in >= 90% of cells with W <= 120
+  P3: the breach share (ratio > 1.25) is lower for c_QLIKE than for plugin_raw in >= 75% of cells with W <= 120
+  P4 (secondary, no threshold): kappa_cq versus c_QLIKE on 1% VaR violation rate - reported only
+  P5 (descriptive): comparison with nonlinear shrinkage, Ledoit-Wolf and equal weights - reported only, no claim of superiority
+inference: shares of cells are descriptive (nested universes, shared periods); violation rates carry no independent-observation guarantee (clustering), so Christoffersen results are reported alongside

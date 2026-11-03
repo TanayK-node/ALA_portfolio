@@ -103,7 +103,7 @@ def fig_surface(tab: pd.DataFrame, fits: pd.DataFrame, out: Path) -> Path:
 def fig_second_stage(summ: pd.DataFrame, out: Path) -> Path:
     p = summ[summ["sample"].isin(["ext_A", "ext_B", "ext_AB"]) & summ.model.isin(["constant", "ridge"])].copy()
     p["cell"] = p["sample"] + " H" + p.H.astype(str) + " W" + p.W.astype(str)
-    fig, ax = plt.subplots(1, 2, figsize=(10, 6.4), sharey=True)
+    fig, ax = plt.subplots(1, 2, figsize=(10, 8.0), sharey=True)
     for a, m in zip(ax, ("constant", "ridge")):
         d = p[p.model == m].sort_values(["sample", "H", "W"]).reset_index(drop=True)
         y = np.arange(len(d))
@@ -112,6 +112,6 @@ def fig_second_stage(summ: pd.DataFrame, out: Path) -> Path:
         a.axvline(0, c="k", lw=.8)
         a.set_title(f"{m} multiplier minus Gaussian correction")
         a.set_xlabel("mean QLIKE difference (negative = second stage better)")
-        a.set_yticks(y, d.cell, fontsize=5.5)
+        a.set_yticks(y, d.cell, fontsize=8)
     fig.tight_layout()
     return _save(fig, out, "fig_second_stage.png")

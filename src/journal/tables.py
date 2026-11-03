@@ -96,6 +96,29 @@ def build(out_root: Path) -> dict[str, pd.DataFrame]:
                 "Kurtosis multiplier: realised/forecast before -> after": [f"{r.loc[m].kurt_vr_before:.2f} -> {r.loc[m].kurt_vr_after:.2f}" for m in ("india", "us")]}
         tabs["T14_india_vs_us"] = pd.DataFrame({"result": list(rows), "India": [v[0] for v in rows.values()], "US": [v[1] for v in rows.values()]})
 
+    ru_rows = []
+    for mk, base in (("India", R), ("US", R.parent / "journal_extension_us")):
+        f = base / "risk_use" / "risk_use_cells.csv"
+        if not f.exists():
+            continue
+        ru = pd.read_csv(f)
+        ru = ru[ru["sample"].isin(["ext_A", "ext_B", "ext_AB"])]
+        for grp, sub in (("W<=120", ru[ru.W <= 120]), ("all W", ru)):
+            g = sub.groupby("variant").agg(viol5=("viol_5", "mean"), viol1=("viol_1", "mean"), kup5=("kupiec_p_5", lambda x: float((x < 0.05).mean())),
+                                           vt_abs_log=("vt_mean_abs_log", "mean"), breach=("vt_breach", "mean"), exposure=("vt_mean_exposure", "mean")).reset_index()
+            g.insert(0, "windows", grp)
+            g.insert(0, "market", mk)
+            ru_rows.append(g)
+    if ru_rows:
+        allru = pd.concat(ru_rows, ignore_index=True)
+        allru.to_csv(T / "risk_use_summary.csv", index=False)
+        order = ["plugin_raw", "c", "c_qlike", "kappa_cq", "nl", "ledoit_wolf", "bps_verbatim", "equal_weight"]
+        t15 = allru[allru.variant.isin(order)].copy()
+        t15["variant"] = pd.Categorical(t15.variant, order, ordered=True)
+        t15 = t15.sort_values(["market", "windows", "variant"], ascending=[True, False, True])
+        tabs["T15_var_backtest"] = t15[["market", "windows", "variant", "viol5", "kup5", "viol1"]].reset_index(drop=True)
+        tabs["T16_vol_targeting"] = t15[["market", "windows", "variant", "vt_abs_log", "breach", "exposure"]].reset_index(drop=True)
+
     for name, df in tabs.items():
         df = df.copy()
         for c in ("W", "periods", "cells", "n", "comparisons", "c_qlike_lower", "ci_below_zero", "adequate_cells", "lower_qlike"):

@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from src import config, data
+from src.evaluate import common_origins
 from src.journal import forecast, inference, metrics, runmeta, scenarios
 from src.multitest import holm_adjust
 from src.simulate import gmv_stats
@@ -387,6 +388,32 @@ def replication_summary() -> None:
     df.to_csv(out / "replication_india_vs_us.csv", index=False)
     pd.DataFrame([verdict]).to_csv(out / "replication_verdict.csv", index=False)
     print("replication verdict:", verdict)
+
+
+def risk_use() -> None:
+    """VaR backtests and volatility targeting for the calibrated forecasts (configs/journal_risk_use.yaml)."""
+    from src.journal import risk_use as ru
+    d = OUT / "risk_use"
+    d.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for name in ("hist_A", "ext_A", "ext_B", "ext_AB", "dev"):
+        R = _sample_returns(name)
+        X = R.to_numpy()
+        N = X.shape[1]
+        wins = [W for W in config.WINDOWS if name != "ext_AB" or W > 1.5 * N]
+        for H in (20, 60):
+            origins = common_origins(len(X), wins, H, H)
+            for W in wins:
+                recs = [ru.origin_records(X, o, W, H) for o in origins]
+                if len(origins) * H < ru.MIN_DAYS:
+                    continue
+                for r in ru.cell_metrics(recs):
+                    rows.append(dict(sample=name, H=H, W=W, **r))
+        print(f"  {name} done", flush=True)
+    pd.DataFrame(rows).to_csv(d / "risk_use_cells.csv", index=False)
+    runmeta.write_meta(OUT / "metadata" / "risk_use.json", "J-RISK-USE", ROOT, config="configs/journal_risk_use.yaml",
+                       data_files=["data/prices_2011_2026.csv"], status="success")
+    print("risk_use done ->", d)
 
 
 PAPER_ALTS = ["raw", "clipped", "mp", "ledoit_wolf", "nl", "bps_verbatim"]   # BPS = verbatim Bodnar-Parolya-Schmid (2018) intensity
@@ -796,7 +823,7 @@ def predictors_stage(n_sim: int = 2000) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check", "conformal", "kurtosis_sim", "kurtosis_eval", "replication_summary"])
+    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check", "conformal", "kurtosis_sim", "kurtosis_eval", "replication_summary", "risk_use"])
     ap.add_argument("--reps", type=int, default=4000)
     ap.add_argument("--version", default="v2")
     ap.add_argument("--smoke", action="store_true")
@@ -809,6 +836,8 @@ if __name__ == "__main__":
         baseline()
     elif a.stage == "extended":
         extended()
+    elif a.stage == "risk_use":
+        risk_use()
     elif a.stage == "replication_summary":
         replication_summary()
     elif a.stage == "kurtosis_eval":
