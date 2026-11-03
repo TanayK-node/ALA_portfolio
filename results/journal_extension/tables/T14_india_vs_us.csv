@@ -1,0 +1,13 @@
+result,India,US
+Corrected forecast has lower mean QLIKE (all comparisons),347 of 348,348 of 348
+"Interval below zero, extended samples",220 of 276,248 of 276
+"Interval below zero, W <= 120",132 of 132,132 of 132
+"Interval below zero, W >= 500",43 of 96,68 of 96
+Comparisons where the correction wins fewer than half the origins,5,13
+c_QLIKE lower QLIKE than c (cells),58 of 58,58 of 58
+c_QLIKE interval below zero (cells),24 of 58,34 of 58
+"Gaussian interval coverage, nominal 80% / 90%",50.2% / 63.0%,44.4% / 55.0%
+"Conformal interval coverage, nominal 80% / 90%",75.4% / 86.0%,85.1% / 92.9%
+Kurtosis multiplier: lower QLIKE (cells),33 of 34,34 of 34
+Kurtosis multiplier: interval below zero (cells),0 of 34,6 of 34
+Kurtosis multiplier: realised/forecast before -> after,1.23 -> 1.06,1.37 -> 1.20

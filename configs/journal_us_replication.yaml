@@ -1,0 +1,21 @@
+experiment_id: J-US-REPLICATION
+description: >
+  Out-of-market replication of the main empirical results on US large caps with the pipeline, windows, horizons, block lengths and decision
+  criteria FROZEN from the Indian-equity analysis. Written 2026-11-04 BEFORE any US price data were downloaded or inspected. No parameter is tuned on US data.
+universe_rule: >
+  Fixed lists chosen from memory of long-established US large caps with a full 2011-2026 listing history (excludes names listed after mid-2011, e.g. META, ABBV, TSLA).
+  All 57 symbols were checked to be present in the user's S&P 500 constituents file (company_details.parquet, a current list), so the universe is a current-constituent
+  list and carries the same survivorship bias as the Indian study; the selection by memory also embeds hindsight about which firms became large. Stated as a limitation.
+universe_A_us: [AAPL, MSFT, AMZN, GOOGL, NVDA, JPM, JNJ, V, PG, UNH, HD, MA, XOM, CVX, KO, PEP, MRK, WMT, BAC, COST, DIS, CSCO, ADBE, CRM, MCD, NKE, TXN, WFC, INTC, ORCL]
+universe_B_us: [IBM, PFE, T, VZ, ABT, TMO, LLY, AMGN, HON, UNP, LOW, QCOM, MMM, CAT, GS, BA, MDT, AXP, SBUX, TGT, MO, MDLZ, CL, GILD, LMT, DE, CVS]
+data: Yahoo Finance adjusted close via yfinance, 2011-05-25 .. 2026-10-06 (same calendar dates as the Indian file); same cleaning (5% missing rule, forward fill <= 3 days, log returns)
+samples: {dev_us: 2021-10-08..2026-10-06 universe A, hist_A_us: 2011-06..2021-10-07 universe A, ext_A_us, ext_B_us, ext_AB_us: 2011-06..2026-10-06}
+settings_frozen_from_india: windows [60, 90, 120, 250, 500, 750]; horizons [20, 60]; non-overlapping origins starting at 750; block length 5 (H=20) / 3 (H=60); B = 1000-2000; seeds as in the Indian runs; A+B restricted to W > 1.5 N
+replication_claims:            # each reported as met / not met, no re-definition afterwards
+  R1: the corrected forecast (c) has lower mean QLIKE than each of the six alternatives in >= 90% of comparisons, and the mean-difference interval is below zero in >= 80% of comparisons at W <= 120
+  R2: c_QLIKE has lower mean QLIKE than c in >= 90% of cells
+  R3: Gaussian-theory interval coverage at the 90% level is below 80% on average (the Indian result was 63%)
+  R4: conformal intervals improve coverage over Gaussian ones in >= 90% of cells and remain within 0.06 of nominal on average
+  R5: "kurtosis multiplier (frozen P, Q, clip, EW-kurtosis estimator): lower QLIKE than c_QLIKE in >= 75% of cells (D1) and intervals favourable in >= 25% (D2); D3, D4 as in configs/journal_kurtosis.yaml"
+  R6: the advantage of c over the alternatives is concentrated at short windows (share of CI-below-zero comparisons at W <= 120 exceeds that at W >= 500)
+inference_notes: shares are descriptive (nested universes, shared periods); the US result is a replication on a second market, not an independent confirmation of every claim

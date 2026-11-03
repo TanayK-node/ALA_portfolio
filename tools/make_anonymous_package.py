@@ -74,9 +74,11 @@ def sha(p: Path) -> str:
 
 
 def main() -> None:
-    if OUT.exists():
-        shutil.rmtree(OUT)
-    OUT.mkdir(parents=True)
+    managed = KEEP_DIRS + KEEP_FILES + ["results", "data", "fetch_prices.py", "README_ANON.md"]
+    OUT.mkdir(parents=True, exist_ok=True)
+    for name in managed:                         # remove only what this script creates; never touch other folders a user put here
+        t = OUT / name
+        shutil.rmtree(t) if t.is_dir() else t.unlink(missing_ok=True)
     ign = shutil.ignore_patterns("__pycache__", "*.pyc", ".pytest_cache")
     for d in KEEP_DIRS:
         shutil.copytree(ROOT / d, OUT / d, ignore=ign)

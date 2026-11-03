@@ -77,6 +77,25 @@ def build(out_root: Path) -> dict[str, pd.DataFrame]:
         cells=("delta", "size"), beta_hat=("beta_mean", "mean"), lower_qlike=("delta", lambda x: int((x < 0).sum())), ci_below_zero=("hi", lambda x: int((x < 0).sum())),
         mean_qlike_diff=("delta", "mean"), vr_c_qlike=("vr_cq", "mean"), vr_kappa=("vr_kcq", "mean"))
 
+    rp = R.parent / "journal_extension_us" / "replication_india_vs_us.csv"
+    if rp.exists():
+        r = pd.read_csv(rp).set_index("market")
+        f = lambda a, b: [f"{int(r.loc[m][a])} of {int(r.loc[m][b])}" for m in ("india", "us")]
+        pc = lambda c: [f"{100 * r.loc[m][c]:.1f}%" for m in ("india", "us")]
+        rows = {"Corrected forecast has lower mean QLIKE (all comparisons)": f("lower_mean_qlike", "comparisons"),
+                "Interval below zero, extended samples": f("ext_ci_below_zero", "ext_comparisons"),
+                "Interval below zero, W <= 120": f("short_ci_below_zero", "short_comparisons"),
+                "Interval below zero, W >= 500": f("long_ci_below_zero", "long_comparisons"),
+                "Comparisons where the correction wins fewer than half the origins": [str(int(r.loc[m].win_rate_losses)) for m in ("india", "us")],
+                "c_QLIKE lower QLIKE than c (cells)": f("cqlike_lower_cells", "cqlike_cells"),
+                "c_QLIKE interval below zero (cells)": f("cqlike_ci_below_zero", "cqlike_cells"),
+                "Gaussian interval coverage, nominal 80% / 90%": [f"{100 * r.loc[m].gauss_cov_80:.1f}% / {100 * r.loc[m].gauss_cov_90:.1f}%" for m in ("india", "us")],
+                "Conformal interval coverage, nominal 80% / 90%": [f"{100 * r.loc[m].conf_cov_80:.1f}% / {100 * r.loc[m].conf_cov_90:.1f}%" for m in ("india", "us")],
+                "Kurtosis multiplier: lower QLIKE (cells)": f("kurt_lower_cells", "kurt_cells"),
+                "Kurtosis multiplier: interval below zero (cells)": f("kurt_ci_below_zero", "kurt_cells"),
+                "Kurtosis multiplier: realised/forecast before -> after": [f"{r.loc[m].kurt_vr_before:.2f} -> {r.loc[m].kurt_vr_after:.2f}" for m in ("india", "us")]}
+        tabs["T14_india_vs_us"] = pd.DataFrame({"result": list(rows), "India": [v[0] for v in rows.values()], "US": [v[1] for v in rows.values()]})
+
     for name, df in tabs.items():
         df = df.copy()
         for c in ("W", "periods", "cells", "n", "comparisons", "c_qlike_lower", "ci_below_zero", "adequate_cells", "lower_qlike"):

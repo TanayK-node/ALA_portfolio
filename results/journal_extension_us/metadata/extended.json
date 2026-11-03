@@ -1,0 +1,93 @@
+{
+  "experiment_id": "J-EXTENDED-5SAMPLES",
+  "timestamp_utc": "2026-11-03T05:01:03+00:00",
+  "git_commit": "415442c7b4ed8444f269a32c464a8237c96fa6f4+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "data_files": [
+    "data/prices.csv",
+    "data/prices_2011_2026.csv"
+  ],
+  "data_sha256": {
+    "prices_us_2011_2026.csv": "3fd033dee9db4f76b92f05a07f23c72676b5655caa50fdacab64044268ce325e"
+  },
+  "samples": {
+    "dev": {
+      "T": 1252,
+      "N": 30,
+      "windows": [
+        60,
+        90,
+        120,
+        250,
+        500,
+        750
+      ],
+      "start": "2021-10-11",
+      "end": "2026-10-06"
+    },
+    "hist_A": {
+      "T": 2606,
+      "N": 30,
+      "windows": [
+        60,
+        90,
+        120,
+        250,
+        500,
+        750
+      ],
+      "start": "2011-06-02",
+      "end": "2021-10-07"
+    },
+    "ext_A": {
+      "T": 3859,
+      "N": 30,
+      "windows": [
+        60,
+        90,
+        120,
+        250,
+        500,
+        750
+      ],
+      "start": "2011-06-02",
+      "end": "2026-10-06"
+    },
+    "ext_B": {
+      "T": 3859,
+      "N": 27,
+      "windows": [
+        60,
+        90,
+        120,
+        250,
+        500,
+        750
+      ],
+      "start": "2011-06-02",
+      "end": "2026-10-06"
+    },
+    "ext_AB": {
+      "T": 3859,
+      "N": 57,
+      "windows": [
+        90,
+        120,
+        250,
+        500,
+        750
+      ],
+      "start": "2011-06-02",
+      "end": "2026-10-06"
+    }
+  },
+  "block_rule": "5 (H=20) / 3 (H=60), as in the conference paper",
+  "B": 2000,
+  "seed": 42,
+  "status": "success"
+}

@@ -349,13 +349,71 @@ def kurtosis_eval() -> None:
     print("kurtosis_eval done ->", ver)
 
 
+def replication_summary() -> None:
+    """Indian vs US results for the pre-specified replication claims R1-R6 (configs/journal_us_replication.yaml)."""
+    out = ROOT / "results" / "journal_extension_us"
+    rows = []
+    for mk, base, ext_name in (("india", ROOT / "results" / "journal_extension", "paired_tests_extended.csv"),
+                               ("us", ROOT / "results" / "journal_extension_us", "paired_tests_extended.csv")):
+        pt = pd.read_csv(base / "extended" / ext_name)
+        pt = pt[pt.alt != "bps_analogue"]
+        ext = pt[pt["sample"] != "dev"]
+        short, long_ = ext[ext.W <= 120], ext[ext.W >= 500]
+        cq = pd.read_csv(base / "cqlike" / "cqlike_vs_c.csv")
+        iv = pd.read_csv(base / "intervals" / "interval_coverage.csv")
+        cv = pd.read_csv(base / "conformal" / "conformal_verdict.csv").set_index("level")
+        kv = pd.read_csv(base / "kurtosis" / "kurtosis_vs_cqlike.csv")
+        kvd = pd.read_csv(base / "kurtosis" / "kurtosis_verdict.csv").iloc[0]
+        rows.append(dict(
+            market=mk, comparisons=len(pt), lower_mean_qlike=int((pt.delta < 0).sum()), ext_ci_below_zero=int((ext.hi < 0).sum()), ext_comparisons=len(ext),
+            short_ci_below_zero=int((short.hi < 0).sum()), short_comparisons=len(short), long_ci_below_zero=int((long_.hi < 0).sum()), long_comparisons=len(long_),
+            win_rate_losses=int(pt.loses.sum()),
+            cqlike_lower_cells=int((cq.delta < 0).sum()), cqlike_cells=len(cq), cqlike_ci_below_zero=int((cq.hi < 0).sum()), cqlike_mean_diff=float(cq.delta.mean()),
+            gauss_cov_80=float(iv[iv.level == 0.8].coverage.mean()), gauss_cov_90=float(iv[iv.level == 0.9].coverage.mean()),
+            conf_cov_80=float(cv.loc[0.8].mean_cov_pooled), conf_cov_90=float(cv.loc[0.9].mean_cov_pooled),
+            conf_beats_gauss_80=float(cv.loc[0.8].C3_share_beats_gauss), conf_beats_gauss_90=float(cv.loc[0.9].C3_share_beats_gauss),
+            kurt_lower_cells=int((kv.delta < 0).sum()), kurt_ci_below_zero=int((kv.hi < 0).sum()), kurt_cells=len(kv), kurt_mean_diff=float(kv.delta.mean()),
+            kurt_vr_before=float(kv.vr_cq.mean()), kurt_vr_after=float(kv.vr_kcq.mean()), kurt_supported=bool(kvd.supported)))
+    df = pd.DataFrame(rows)
+    us = df[df.market == "us"].iloc[0]
+    verdict = dict(
+        R1=bool(us.lower_mean_qlike / us.comparisons >= 0.9 and us.short_ci_below_zero / us.short_comparisons >= 0.8),
+        R2=bool(us.cqlike_lower_cells / us.cqlike_cells >= 0.9),
+        R3=bool(us.gauss_cov_90 < 0.8),
+        R4=bool(min(us.conf_beats_gauss_80, us.conf_beats_gauss_90) >= 0.9 and abs(us.conf_cov_80 - 0.8) <= 0.06 and abs(us.conf_cov_90 - 0.9) <= 0.06),
+        R5=bool(us.kurt_supported),
+        R6=bool(us.short_ci_below_zero / us.short_comparisons > us.long_ci_below_zero / us.long_comparisons))
+    out.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out / "replication_india_vs_us.csv", index=False)
+    pd.DataFrame([verdict]).to_csv(out / "replication_verdict.csv", index=False)
+    print("replication verdict:", verdict)
+
+
 PAPER_ALTS = ["raw", "clipped", "mp", "ledoit_wolf", "nl", "bps_verbatim"]   # BPS = verbatim Bodnar-Parolya-Schmid (2018) intensity
 EXT_CSV = ROOT / "data" / "prices_2011_2026.csv"
 
 
+MARKET = "india"
+US_CSV = ROOT / "data" / "prices_us_2011_2026.csv"
+
+
+def _us_universe() -> tuple[list[str], list[str]]:
+    import yaml
+    cfg = yaml.safe_load((ROOT / "configs" / "journal_us_replication.yaml").read_text())
+    return cfg["universe_A_us"], cfg["universe_B_us"]
+
+
 def _sample_returns(name: str) -> pd.DataFrame:
-    """The five conference samples. dev = the cached 2021-26 file (as in the paper); others from data/prices_2011_2026.csv."""
+    """The five conference samples. dev = the cached 2021-26 file (as in the paper); others from data/prices_2011_2026.csv.
+    With --market us the same five samples are built from data/prices_us_2011_2026.csv (dev = its 2021-10-08..2026-10-06 slice)."""
     from src.data import clean_prices, log_returns
+    if MARKET == "us":
+        A, B = _us_universe()
+        p = pd.read_csv(US_CSV, index_col=0, parse_dates=True)
+        tk = {"dev": A, "hist_A": A, "ext_A": A, "ext_B": B, "ext_AB": A + B}[name]
+        lo, hi = {"dev": ("2021-10-08", "2026-10-06"), "hist_A": ("2011-06-01", "2021-10-07")}.get(name, ("2011-06-01", "2026-10-06"))
+        c, _ = clean_prices(p.loc[lo:hi, tk])
+        return log_returns(c).replace([np.inf, -np.inf], np.nan).dropna(how="any")
     if name == "dev":
         return _returns("P1_existing")
     p = pd.read_csv(EXT_CSV, index_col=0, parse_dates=True)
@@ -400,7 +458,8 @@ def extended() -> None:
     pd.DataFrame(tabs).to_csv(d / "table2_all_rows.csv", index=False)
     pd.DataFrame(tests).to_csv(d / "paired_tests_extended.csv", index=False)
     runmeta.write_meta(OUT / "metadata" / "extended.json", "J-EXTENDED-5SAMPLES", ROOT, data_files=["data/prices.csv", "data/prices_2011_2026.csv"],
-                       data_sha256={"prices.csv": runmeta.file_sha256(config.PRICES_CSV), "prices_2011_2026.csv": runmeta.file_sha256(EXT_CSV)},
+                       data_sha256=({"prices_us_2011_2026.csv": runmeta.file_sha256(US_CSV)} if MARKET == "us" else
+                                    {"prices.csv": runmeta.file_sha256(config.PRICES_CSV), "prices_2011_2026.csv": runmeta.file_sha256(EXT_CSV)}),
                        samples=meta, block_rule="5 (H=20) / 3 (H=60), as in the conference paper", B=config.BOOT_N, seed=config.SEED, status="success")
     print("extended done ->", d)
 
@@ -737,15 +796,21 @@ def predictors_stage(n_sim: int = 2000) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check", "conformal", "kurtosis_sim", "kurtosis_eval"])
+    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check", "conformal", "kurtosis_sim", "kurtosis_eval", "replication_summary"])
     ap.add_argument("--reps", type=int, default=4000)
     ap.add_argument("--version", default="v2")
     ap.add_argument("--smoke", action="store_true")
+    ap.add_argument("--market", choices=["india", "us"], default="india")
     a = ap.parse_args()
+    if a.market == "us":
+        MARKET = "us"
+        OUT = ROOT / "results" / "journal_extension_us"
     if a.stage == "baseline":
         baseline()
     elif a.stage == "extended":
         extended()
+    elif a.stage == "replication_summary":
+        replication_summary()
     elif a.stage == "kurtosis_eval":
         kurtosis_eval()
     elif a.stage == "kurtosis_sim":

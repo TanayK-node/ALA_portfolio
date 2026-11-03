@@ -1,0 +1,16 @@
+{
+  "experiment_id": "J-CONFORMAL",
+  "timestamp_utc": "2026-11-03T05:01:38+00:00",
+  "git_commit": "415442c7b4ed8444f269a32c464a8237c96fa6f4+uncommitted",
+  "python": "3.13.9",
+  "numpy": "2.3.4",
+  "pandas": "2.3.3",
+  "scipy": "1.16.3",
+  "sklearn": "1.9.0",
+  "platform": "macOS-15.5-arm64-arm-64bit-Mach-O",
+  "config": "configs/journal_conformal.yaml",
+  "data_files": [
+    "data/prices_2011_2026.csv"
+  ],
+  "status": "success"
+}

@@ -66,3 +66,6 @@ Draft in `manuscript/MANUSCRIPT_DRAFT.md`. FMPM guidelines NOT verified (Springe
 
 ## 8. Stage D follow-up (2026-11-03)
 Done: BPS verbatim check (Results 11), figure review + fixes + `figures` stage, interval-coverage experiment (Results 12), partial literature pass (Kan-Smith 2008, Dickinson 1974 pre-empt Prop 1 novelty). Not done: skewed generator, full-text reading of Kempf-Memmel/Kan-Smith, FMPM guidelines check.
+
+## 9. US replication (2026-11-04)
+Done: configs/journal_us_replication.yaml (pre-registered), tools/fetch_us_prices.py, --market us in run_journal.py, results/journal_extension_us/. S&P folder supplied by the user (annual CapIQ fundamentals) was NOT usable for returns; only its ticker list was used for a membership check.

@@ -1,0 +1,3 @@
+level,adequate_cells,mean_cov_pooled,mean_cov_vol,mean_cov_gauss,C1_share_within_0p05,C1_pass,C2_mean_gap,C2_pass,C3_share_beats_gauss,C3_pass,vol_beats_pooled_share,vol_share_within_0p05
+0.8,40,0.8513493130227001,0.8362059438470728,0.4557504480286738,0.575,False,0.05134931302270007,False,1.0,True,0.25,0.6
+0.9,40,0.9294130824372759,0.9193742532855435,0.5556488948626046,0.85,True,0.029413082437275917,True,0.95,True,0.2,0.85
