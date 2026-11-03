@@ -91,3 +91,53 @@ def cell_metrics(recs: list[dict[str, tuple[np.ndarray, float]]]) -> list[dict]:
                    vt_breach=float(np.mean(ratios > 1.25)), vt_mean_exposure=float(np.mean(expo)), n_blocks=len(ratios))
         rows.append(row)
     return rows
+
+
+# ------------------------------------------------------------------ fixed-target forecast comparison and portfolio outcomes
+def origin_fixed_target(X: np.ndarray, o: int, W: int, H: int) -> dict[str, dict[str, tuple[float, float]]]:
+    """{target: {forecaster: (realised block variance v, daily variance forecast h)}}; every forecaster in a target predicts the SAME v."""
+    train, test = X[o - W:o], X[o:o + H]
+    N = X.shape[1]
+    covs = estimate_covariances(pd.DataFrame(train))
+    covs["nl"] = (estimators.nl_cov(train), np.nan)
+    S_raw = covs["raw"][0]
+    beta = kurtosis.ew_kurtosis_ratio(train)
+    m = float(kurtosis.multiplier(beta, N, W))
+    c, cq = forecast.c_gauss(N, W), forecast.c_qlike(N, W)
+    out = {}
+    for tname, w in (("gmv", min_variance_closed_form(S_raw)), ("ew", np.full(N, 1.0 / N))):
+        v = float(np.var(test @ w, ddof=1))
+        h = {k: float(w @ S @ w) for k, (S, _) in covs.items()}
+        d = {"raw": (v, h["raw"]), "c": (v, c * h["raw"]), "c_qlike": (v, cq * h["raw"]), "kappa_cq": (v, cq * m * h["raw"])}
+        d.update({k: (v, h[k]) for k in ("clipped", "mp", "ledoit_wolf", "nl")})
+        out[tname] = d
+    return out
+
+
+def max_drawdown(logret: np.ndarray) -> float:
+    cum = np.cumsum(logret)
+    peak = np.maximum.accumulate(np.concatenate([[0.0], cum]))[1:]
+    return float(np.min(cum - peak))
+
+
+def portfolio_outcomes(X: np.ndarray, o_list: list[int], W: int, H: int) -> list[dict]:
+    """Each estimator builds its own portfolio at every origin; daily returns are concatenated over the test blocks."""
+    N = X.shape[1]
+    rets: dict[str, list[np.ndarray]] = {}
+    maxw: dict[str, list[float]] = {}
+    for o in o_list:
+        train, test = X[o - W:o], X[o:o + H]
+        covs = estimate_covariances(pd.DataFrame(train))
+        covs["nl"] = (estimators.nl_cov(train), np.nan)
+        ws = {k: min_variance_closed_form(S) for k, (S, _) in covs.items()}
+        ws["bps_verbatim"] = estimators.bps_weights_verbatim(train)
+        ws["equal_weight"] = np.full(N, 1.0 / N)
+        for k, w in ws.items():
+            rets.setdefault(k, []).append(test @ w)
+            maxw.setdefault(k, []).append(float(np.max(np.abs(w))))
+    rows = []
+    for k, rl in rets.items():
+        r = np.concatenate(rl)
+        rows.append(dict(portfolio=k, ann_vol=float(np.std(r, ddof=1) * np.sqrt(252)), max_drawdown=max_drawdown(r),
+                         ann_return=float(np.mean(r) * 252), mean_max_abs_w=float(np.mean(maxw[k])), n_days=len(r)))
+    return rows

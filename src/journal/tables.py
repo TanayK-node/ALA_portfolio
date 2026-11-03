@@ -119,6 +119,41 @@ def build(out_root: Path) -> dict[str, pd.DataFrame]:
         tabs["T15_var_backtest"] = t15[["market", "windows", "variant", "viol5", "kup5", "viol1"]].reset_index(drop=True)
         tabs["T16_vol_targeting"] = t15[["market", "windows", "variant", "vt_abs_log", "breach", "exposure"]].reset_index(drop=True)
 
+    st_rows, po_rows = [], []
+    for mk, base in (("India", R), ("US", R.parent / "journal_extension_us")):
+        f = base / "same_target" / "fixed_target_tests.csv"
+        if not f.exists():
+            continue
+        t = pd.read_csv(f)
+        t = t[~t.alt.str.startswith("level_") & t["sample"].isin(["ext_A", "ext_B", "ext_AB"])]
+        for tg, lab in (("gmv", "raw minimum-variance"), ("ew", "equal-weight (control)")):
+            for alt in ("raw", "clipped", "mp", "ledoit_wolf", "nl"):
+                g = t[(t.target == tg) & (t.alt == alt)]
+                st_rows.append(dict(market=mk, target=lab, vs=alt, comparisons=len(g), lower=float((g.delta < 0).mean()), ci_below=float((g.hi < 0).mean()),
+                                    ci_above=float((g.lo > 0).mean()), mean_diff=float(g.delta.mean())))
+        o = pd.read_csv(base / "same_target" / "portfolio_outcomes.csv")
+        o = o[o["sample"].isin(["ext_A", "ext_B", "ext_AB"])]
+        for grp, sub in (("W<=120", o[o.W <= 120]), ("W>=500", o[o.W >= 500])):
+            g = sub.groupby("portfolio")[["ann_vol", "max_drawdown", "ann_return", "mean_max_abs_w"]].mean().reset_index()
+            g.insert(0, "windows", grp)
+            g.insert(0, "market", mk)
+            po_rows.append(g)
+    if st_rows:
+        sdf = pd.DataFrame(st_rows)
+        sdf.to_csv(T / "same_target_summary.csv", index=False)
+        tabs["T17_same_target"] = sdf
+        order = ["raw", "clipped", "mp", "ledoit_wolf", "nl", "bps_verbatim", "equal_weight"]
+        pdf = pd.concat(po_rows, ignore_index=True)
+        pdf["portfolio"] = pd.Categorical(pdf.portfolio, order, ordered=True)
+        tabs["T18_portfolio_outcomes"] = pdf.sort_values(["market", "windows", "portfolio"], ascending=[True, True, True]).reset_index(drop=True)
+        tabs["T18_portfolio_outcomes"]["windows"] = tabs["T18_portfolio_outcomes"]["windows"]
+        pdf.to_csv(T / "portfolio_outcomes_summary.csv", index=False)
+    tabs["T19_comparator_roles"] = pd.DataFrame([
+        ("Raw plug-in", "yes", "yes", "yes", "yes"), ("Eigenvalue clipping", "yes", "yes", "yes", "yes"), ("Marchenko-Pastur filter", "yes", "yes", "yes", "yes"),
+        ("Ledoit-Wolf", "yes", "yes", "yes", "yes"), ("Nonlinear shrinkage", "yes", "yes", "yes", "yes"), ("Weight shrinkage (BPS)", "yes", "no", "yes", "yes"),
+        ("Equal weights", "no", "control only", "yes", "yes")],
+        columns=["estimator", "own-portfolio QLIKE (348 comparisons)", "same-target QLIKE", "VaR and volatility targeting", "portfolio outcomes"])
+
     for name, df in tabs.items():
         df = df.copy()
         for c in ("W", "periods", "cells", "n", "comparisons", "c_qlike_lower", "ci_below_zero", "adequate_cells", "lower_qlike"):

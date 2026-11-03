@@ -416,6 +416,40 @@ def risk_use() -> None:
     print("risk_use done ->", d)
 
 
+def same_target() -> None:
+    """Fixed-target forecast comparison and separate portfolio outcomes (configs/journal_same_target.yaml)."""
+    from src.journal import risk_use as ru
+    d = OUT / "same_target"
+    d.mkdir(parents=True, exist_ok=True)
+    tests, outs = [], []
+    for name in ("hist_A", "ext_A", "ext_B", "ext_AB", "dev"):
+        R = _sample_returns(name)
+        X = R.to_numpy()
+        N = X.shape[1]
+        wins = [W for W in config.WINDOWS if name != "ext_AB" or W > 1.5 * N]
+        for H in (20, 60):
+            origins = common_origins(len(X), wins, H, H)
+            L = 5 if H == 20 else 3
+            for W in wins:
+                recs = [ru.origin_fixed_target(X, o, W, H) for o in origins]
+                for tg in ("gmv", "ew"):
+                    q = {k: np.array([metrics.qlike(r[tg][k][0], r[tg][k][1]) for r in recs]) for k in recs[0][tg]}
+                    for alt in ("raw", "clipped", "mp", "ledoit_wolf", "nl"):
+                        pt = inference.paired_loss_test(q["c"], q[alt], block=L)
+                        tests.append(dict(sample=name, H=H, W=W, target=tg, alt=alt, n=pt.n, q_c=float(q["c"].mean()), q_alt=float(q[alt].mean()),
+                                          delta=pt.mean_diff, lo=pt.lo, hi=pt.hi, win=pt.win_rate))
+                    for k in q:
+                        tests.append(dict(sample=name, H=H, W=W, target=tg, alt=f"level_{k}", n=len(q[k]), q_c=float(q[k].mean()), q_alt=np.nan, delta=np.nan, lo=np.nan, hi=np.nan, win=np.nan))
+                for row in ru.portfolio_outcomes(X, origins, W, H):
+                    outs.append(dict(sample=name, H=H, W=W, **row))
+        print(f"  {name} done", flush=True)
+    pd.DataFrame(tests).to_csv(d / "fixed_target_tests.csv", index=False)
+    pd.DataFrame(outs).to_csv(d / "portfolio_outcomes.csv", index=False)
+    runmeta.write_meta(OUT / "metadata" / "same_target.json", "J-SAME-TARGET", ROOT, config="configs/journal_same_target.yaml",
+                       data_files=["data/prices_2011_2026.csv"], status="success")
+    print("same_target done ->", d)
+
+
 PAPER_ALTS = ["raw", "clipped", "mp", "ledoit_wolf", "nl", "bps_verbatim"]   # BPS = verbatim Bodnar-Parolya-Schmid (2018) intensity
 EXT_CSV = ROOT / "data" / "prices_2011_2026.csv"
 
@@ -823,7 +857,7 @@ def predictors_stage(n_sim: int = 2000) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check", "conformal", "kurtosis_sim", "kurtosis_eval", "replication_summary", "risk_use"])
+    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check", "conformal", "kurtosis_sim", "kurtosis_eval", "replication_summary", "risk_use", "same_target"])
     ap.add_argument("--reps", type=int, default=4000)
     ap.add_argument("--version", default="v2")
     ap.add_argument("--smoke", action="store_true")
@@ -836,6 +870,8 @@ if __name__ == "__main__":
         baseline()
     elif a.stage == "extended":
         extended()
+    elif a.stage == "same_target":
+        same_target()
     elif a.stage == "risk_use":
         risk_use()
     elif a.stage == "replication_summary":

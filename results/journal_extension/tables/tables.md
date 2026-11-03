@@ -243,3 +243,73 @@
 | US | W<=120 | ledoit_wolf | 0.371 | 0.535 | 1.948 |
 | US | W<=120 | bps_verbatim | 0.350 | 0.462 | 1.804 |
 | US | W<=120 | equal_weight | 0.347 | 0.207 | 1.269 |
+
+### T17_same_target
+
+| market | target | vs | comparisons | lower | ci_below | ci_above | mean_diff |
+|---|---|---|---|---|---|---|---|
+| India | raw minimum-variance | raw | 34 | 1.000 | 0.794 | 0.000 | -1.216 |
+| India | raw minimum-variance | clipped | 34 | 1.000 | 0.794 | 0.000 | -0.796 |
+| India | raw minimum-variance | mp | 34 | 0.853 | 0.235 | 0.000 | -0.047 |
+| India | raw minimum-variance | ledoit_wolf | 34 | 1.000 | 0.794 | 0.000 | -0.317 |
+| India | raw minimum-variance | nl | 34 | 1.000 | 0.824 | 0.000 | -0.230 |
+| India | equal-weight (control) | raw | 34 | 0.441 | 0.000 | 0.147 | 0.112 |
+| India | equal-weight (control) | clipped | 34 | 0.441 | 0.000 | 0.147 | 0.112 |
+| India | equal-weight (control) | mp | 34 | 0.441 | 0.000 | 0.147 | 0.108 |
+| India | equal-weight (control) | ledoit_wolf | 34 | 0.706 | 0.000 | 0.088 | 0.042 |
+| India | equal-weight (control) | nl | 34 | 0.471 | 0.000 | 0.147 | 0.094 |
+| US | raw minimum-variance | raw | 34 | 1.000 | 0.882 | 0.000 | -1.816 |
+| US | raw minimum-variance | clipped | 34 | 1.000 | 0.882 | 0.000 | -0.918 |
+| US | raw minimum-variance | mp | 34 | 0.735 | 0.324 | 0.118 | 0.001 |
+| US | raw minimum-variance | ledoit_wolf | 34 | 1.000 | 0.824 | 0.000 | -0.388 |
+| US | raw minimum-variance | nl | 34 | 1.000 | 0.853 | 0.000 | -0.403 |
+| US | equal-weight (control) | raw | 34 | 0.853 | 0.000 | 0.000 | -0.050 |
+| US | equal-weight (control) | clipped | 34 | 0.853 | 0.000 | 0.000 | -0.050 |
+| US | equal-weight (control) | mp | 34 | 0.853 | 0.000 | 0.000 | -0.060 |
+| US | equal-weight (control) | ledoit_wolf | 34 | 0.941 | 0.000 | 0.000 | -0.178 |
+| US | equal-weight (control) | nl | 34 | 0.853 | 0.000 | 0.000 | -0.081 |
+
+### T18_portfolio_outcomes
+
+| market | windows | portfolio | ann_vol | max_drawdown | ann_return | mean_max_abs_w |
+|---|---|---|---|---|---|---|
+| India | W<=120 | raw | 0.173 | -0.328 | 0.144 | 0.262 |
+| India | W<=120 | clipped | 0.159 | -0.310 | 0.143 | 0.222 |
+| India | W<=120 | mp | 0.145 | -0.305 | 0.116 | 0.118 |
+| India | W<=120 | ledoit_wolf | 0.144 | -0.310 | 0.136 | 0.144 |
+| India | W<=120 | nl | 0.143 | -0.304 | 0.126 | 0.139 |
+| India | W<=120 | bps_verbatim | 0.155 | -0.348 | 0.143 | 0.162 |
+| India | W<=120 | equal_weight | 0.168 | -0.433 | 0.139 | 0.031 |
+| India | W>=500 | raw | 0.138 | -0.316 | 0.135 | 0.165 |
+| India | W>=500 | clipped | 0.138 | -0.316 | 0.135 | 0.165 |
+| India | W>=500 | mp | 0.141 | -0.330 | 0.125 | 0.121 |
+| India | W>=500 | ledoit_wolf | 0.137 | -0.317 | 0.135 | 0.147 |
+| India | W>=500 | nl | 0.136 | -0.315 | 0.133 | 0.144 |
+| India | W>=500 | bps_verbatim | 0.137 | -0.322 | 0.135 | 0.155 |
+| India | W>=500 | equal_weight | 0.167 | -0.433 | 0.139 | 0.029 |
+| US | W<=120 | raw | 0.174 | -0.355 | 0.100 | 0.376 |
+| US | W<=120 | clipped | 0.156 | -0.309 | 0.104 | 0.262 |
+| US | W<=120 | mp | 0.153 | -0.344 | 0.073 | 0.142 |
+| US | W<=120 | ledoit_wolf | 0.146 | -0.305 | 0.102 | 0.183 |
+| US | W<=120 | nl | 0.147 | -0.301 | 0.102 | 0.196 |
+| US | W<=120 | bps_verbatim | 0.154 | -0.309 | 0.109 | 0.220 |
+| US | W<=120 | equal_weight | 0.165 | -0.387 | 0.123 | 0.031 |
+| US | W>=500 | raw | 0.145 | -0.380 | 0.066 | 0.229 |
+| US | W>=500 | clipped | 0.145 | -0.378 | 0.067 | 0.226 |
+| US | W>=500 | mp | 0.152 | -0.357 | 0.068 | 0.159 |
+| US | W>=500 | ledoit_wolf | 0.144 | -0.361 | 0.070 | 0.203 |
+| US | W>=500 | nl | 0.144 | -0.364 | 0.068 | 0.207 |
+| US | W>=500 | bps_verbatim | 0.144 | -0.370 | 0.070 | 0.212 |
+| US | W>=500 | equal_weight | 0.165 | -0.386 | 0.123 | 0.029 |
+
+### T19_comparator_roles
+
+| estimator | own-portfolio QLIKE (348 comparisons) | same-target QLIKE | VaR and volatility targeting | portfolio outcomes |
+|---|---|---|---|---|
+| Raw plug-in | yes | yes | yes | yes |
+| Eigenvalue clipping | yes | yes | yes | yes |
+| Marchenko-Pastur filter | yes | yes | yes | yes |
+| Ledoit-Wolf | yes | yes | yes | yes |
+| Nonlinear shrinkage | yes | yes | yes | yes |
+| Weight shrinkage (BPS) | yes | no | yes | yes |
+| Equal weights | no | control only | yes | yes |

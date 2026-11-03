@@ -1,0 +1,17 @@
+experiment_id: J-SAME-TARGET
+description: >
+  Referee-motivated separation of two questions, written 2026-11-04 BEFORE the first run (applied to Indian and US data alike):
+  (1) FORECAST comparison with the portfolio and the realised target held FIXED; (2) PORTFOLIO comparison, where each estimator builds its own portfolio and outcomes are reported separately.
+  The earlier "own-portfolio" QLIKE table compares how well each estimator forecasts the risk of ITS OWN portfolio (calibration of a method's self-reported risk); it is not a same-target forecast comparison.
+fixed_target_experiment:
+  primary_target: the raw unconstrained minimum-variance portfolio of the training window (weights w_raw); realised target v = sample variance of w_raw' r over the H-day block
+  forecasters: [raw: w'S w, c: c(N,W) w'S w, c_qlike, kappa_cq (frozen multiplier), clipped: w'S_clip w, mp: w'S_mp w, ledoit_wolf, nl]   # every forecaster predicts the SAME v
+  excluded: bps_verbatim and equal_weight (weight-based; they do not provide a covariance forecast for w_raw)
+  control_target: equal-weight portfolio (no selection effect); same forecasters. Expectation: the Gaussian GMV correction should NOT help here (raw covariance is unbiased for w'Sigma w with fixed w).
+  inference: moving-block bootstrap on paired QLIKE differences, L = 5 (H=20) / 3 (H=60), B = 1000; cells = (sample, H, W) for ext_A, ext_B, ext_AB, hist_A, dev
+  claims:
+    S1: on the primary target, c has lower mean QLIKE than each of clipped, mp, ledoit_wolf, nl in >= 75% of comparisons, and the paired interval is below zero in >= 50% of comparisons with W <= 120
+    S2: on the control target, c has HIGHER mean QLIKE than raw in >= 75% of cells (reported; shows the correction is specific to selected minimum-variance weights)
+portfolio_outcome_experiment:
+  portfolios: [raw, clipped, mp, ledoit_wolf, nl, bps_verbatim, equal_weight] each with its own weights
+  outcomes (descriptive, no claim): annualised volatility of concatenated daily returns (x sqrt(252)), maximum drawdown of the cumulative log return, annualised mean return, mean of max |w|

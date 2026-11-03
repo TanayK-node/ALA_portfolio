@@ -1,0 +1,8 @@
+estimator,own-portfolio QLIKE (348 comparisons),same-target QLIKE,VaR and volatility targeting,portfolio outcomes
+Raw plug-in,yes,yes,yes,yes
+Eigenvalue clipping,yes,yes,yes,yes
+Marchenko-Pastur filter,yes,yes,yes,yes
+Ledoit-Wolf,yes,yes,yes,yes
+Nonlinear shrinkage,yes,yes,yes,yes
+Weight shrinkage (BPS),yes,no,yes,yes
+Equal weights,no,control only,yes,yes

@@ -27,3 +27,19 @@ def test_origin_records_use_only_rows_before_origin_and_c_scales_forecast():
     b = risk_use.origin_records(X2, 250, 120, 20)
     assert a["plugin_raw"][1] == b["plugin_raw"][1]       # forecast unaffected by the future
     assert a["c_qlike"][1] > a["c"][1] > a["plugin_raw"][1]
+
+
+def test_fixed_target_forecasters_share_the_same_realised_variance_and_use_no_future_rows():
+    rng = np.random.default_rng(2)
+    X = rng.standard_normal((400, 8)) * 0.01
+    a = risk_use.origin_fixed_target(X, 250, 120, 20)
+    for tg in ("gmv", "ew"):
+        assert len({round(v, 18) for v, _ in a[tg].values()}) == 1
+    X2 = X.copy()
+    X2[250:] += 3.0
+    b = risk_use.origin_fixed_target(X2, 250, 120, 20)
+    assert a["gmv"]["raw"][1] == b["gmv"]["raw"][1]
+
+
+def test_max_drawdown_is_nonpositive_and_correct():
+    assert risk_use.max_drawdown(np.array([0.1, -0.2, -0.1, 0.3])) == -0.30000000000000004 or abs(risk_use.max_drawdown(np.array([0.1, -0.2, -0.1, 0.3])) + 0.3) < 1e-12
