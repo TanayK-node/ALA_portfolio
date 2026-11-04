@@ -485,12 +485,19 @@ def _sample_returns(name: str) -> pd.DataFrame:
     return log_returns(c).replace([np.inf, -np.inf], np.nan).dropna(how="any")
 
 
-def extended() -> None:
-    d = OUT / "extended"
+ZERO_SHARE = 0.9          # a date is a vendor/non-trading date when at least this share of the stocks have an exactly zero return
+
+
+def extended(drop_zero: bool = False) -> None:
+    """Five-sample comparison. drop_zero=True is the data-cleaning sensitivity: dates with >= 90% exactly-zero returns are removed
+    from every sample and the output goes to extended_zero_sens/ (the primary results in extended/ are never overwritten)."""
+    d = OUT / ("extended_zero_sens" if drop_zero else "extended")
     d.mkdir(parents=True, exist_ok=True)
     tests, tabs, meta = [], [], {}
     for name in ("dev", "hist_A", "ext_A", "ext_B", "ext_AB"):
         R = _sample_returns(name)
+        if drop_zero:
+            R = R[(R == 0).mean(axis=1) < ZERO_SHARE]
         N = R.shape[1]
         wins = [W for W in config.WINDOWS if name != "ext_AB" or W > 1.5 * N]
         meta[name] = dict(T=len(R), N=N, windows=wins, start=str(R.index[0].date()), end=str(R.index[-1].date()))
@@ -518,7 +525,7 @@ def extended() -> None:
         print(f"  {name} done", flush=True)
     pd.DataFrame(tabs).to_csv(d / "table2_all_rows.csv", index=False)
     pd.DataFrame(tests).to_csv(d / "paired_tests_extended.csv", index=False)
-    runmeta.write_meta(OUT / "metadata" / "extended.json", "J-EXTENDED-5SAMPLES", ROOT, data_files=["data/prices.csv", "data/prices_2011_2026.csv"],
+    runmeta.write_meta(OUT / "metadata" / ("extended_zero_sens.json" if drop_zero else "extended.json"), "J-EXTENDED-ZERO-SENS" if drop_zero else "J-EXTENDED-5SAMPLES", ROOT, data_files=["data/prices.csv", "data/prices_2011_2026.csv"],
                        data_sha256=({"prices_us_2011_2026.csv": runmeta.file_sha256(US_CSV)} if MARKET == "us" else
                                     {"prices.csv": runmeta.file_sha256(config.PRICES_CSV), "prices_2011_2026.csv": runmeta.file_sha256(EXT_CSV)}),
                        samples=meta, block_rule="5 (H=20) / 3 (H=60), as in the conference paper", B=config.BOOT_N, seed=config.SEED, status="success")
@@ -593,6 +600,41 @@ def intervals_stage() -> None:
     df.to_csv(d / "interval_coverage.csv", index=False)
     runmeta.write_meta(OUT / "metadata" / "intervals.json", "J-INTERVALS", ROOT, data_files=["data/prices_2011_2026.csv"], status="success")
     print("intervals done ->", d)
+
+
+def interval_check_stage() -> None:
+    """Gaussian interval coverage with the c-centred and the c_QLIKE-centred pivot (same data, same draws): must be identical in v-space."""
+    from src.journal import intervals
+    d = OUT / "intervals"
+    d.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for name in ("dev", "hist_A", "ext_A", "ext_B", "ext_AB"):
+        p = OUT / "extended" / f"forecasts_{name}_H20.csv"
+        if not p.exists():
+            continue
+        N = _sample_returns(name).shape[1]
+        for H in (20, 60):
+            fc = pd.read_csv(OUT / "extended" / f"forecasts_{name}_H{H}.csv")
+            for W in sorted(fc.window.unique()):
+                g = fc[fc.window == W]
+                hc = g[g.forecast == "raw_corrected"].sort_values("origin")
+                hq = g[g.forecast == "raw_corrected_qlike"].sort_values("origin")
+                if len(hq) == 0 or int(W) < N + 3:
+                    continue
+                for lvl in (0.8, 0.9):
+                    a = (1 - lvl) / 2
+                    qc = intervals.ratio_quantiles(N, int(W), H, [a, 1 - a], seed=config.SEED, multiplier="c")
+                    qq = intervals.ratio_quantiles(N, int(W), H, [a, 1 - a], seed=config.SEED, multiplier="cqlike")
+                    lo_c, hi_c = hc.h.to_numpy() * qc[0], hc.h.to_numpy() * qc[1]
+                    lo_q, hi_q = hq.h.to_numpy() * qq[0], hq.h.to_numpy() * qq[1]
+                    v = hc.v.to_numpy()
+                    rows.append(dict(sample=name, H=H, W=int(W), level=lvl, n=len(v),
+                                     cov_c=float(np.mean((v >= lo_c) & (v <= hi_c))), cov_cqlike=float(np.mean((v >= lo_q) & (v <= hi_q))),
+                                     max_rel_endpoint_diff=float(max(np.max(np.abs(lo_c / lo_q - 1)), np.max(np.abs(hi_c / hi_q - 1))))))
+    df = pd.DataFrame(rows)
+    df.to_csv(d / "interval_multiplier_check.csv", index=False)
+    print(df.groupby("level")[["cov_c", "cov_cqlike", "max_rel_endpoint_diff"]].agg(["mean", "max"]))
+    runmeta.write_meta(OUT / "metadata" / "interval_check.json", "J-INTERVAL-CHECK", ROOT, data_files=["data/prices_2011_2026.csv"], status="success")
 
 
 def _dyn_cell(structure: str, kind: str, N: int, T: int, reps: int, seed: int, H: int = 60, batch: int = 250) -> list[dict]:
@@ -857,7 +899,7 @@ def predictors_stage(n_sim: int = 2000) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check", "conformal", "kurtosis_sim", "kurtosis_eval", "replication_summary", "risk_use", "same_target"])
+    ap.add_argument("stage", choices=["baseline", "validate", "extended", "dynamic", "surface", "regimes", "second_stage", "predictors", "bps_check", "figures", "intervals", "tables", "validate_skew", "cqlike_check", "conformal", "kurtosis_sim", "kurtosis_eval", "replication_summary", "risk_use", "same_target", "interval_check", "zero_sens"])
     ap.add_argument("--reps", type=int, default=4000)
     ap.add_argument("--version", default="v2")
     ap.add_argument("--smoke", action="store_true")
@@ -892,6 +934,10 @@ if __name__ == "__main__":
         print("tables done ->", OUT / "tables")
     elif a.stage == "intervals":
         intervals_stage()
+    elif a.stage == "zero_sens":
+        extended(drop_zero=True)
+    elif a.stage == "interval_check":
+        interval_check_stage()
     elif a.stage == "figures":
         figures_stage()
     elif a.stage == "bps_check":

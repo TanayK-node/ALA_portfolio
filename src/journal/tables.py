@@ -105,6 +105,9 @@ def build(out_root: Path) -> dict[str, pd.DataFrame]:
         ru = ru[ru["sample"].isin(["ext_A", "ext_B", "ext_AB"])]
         for grp, sub in (("W<=120", ru[ru.W <= 120]), ("all W", ru)):
             g = sub.groupby("variant").agg(viol5=("viol_5", "mean"), viol1=("viol_1", "mean"), kup5=("kupiec_p_5", lambda x: float((x < 0.05).mean())),
+                                           kup1=("kupiec_p_1", lambda x: float((x < 0.05).mean())),
+                                           chr5=("christ_p_5", lambda x: float((x.dropna() < 0.05).mean())),
+                                           chr1=("christ_p_1", lambda x: float((x.dropna() < 0.05).mean())),
                                            vt_abs_log=("vt_mean_abs_log", "mean"), breach=("vt_breach", "mean"), exposure=("vt_mean_exposure", "mean")).reset_index()
             g.insert(0, "windows", grp)
             g.insert(0, "market", mk)
@@ -116,7 +119,7 @@ def build(out_root: Path) -> dict[str, pd.DataFrame]:
         t15 = allru[allru.variant.isin(order)].copy()
         t15["variant"] = pd.Categorical(t15.variant, order, ordered=True)
         t15 = t15.sort_values(["market", "windows", "variant"], ascending=[True, False, True])
-        tabs["T15_var_backtest"] = t15[["market", "windows", "variant", "viol5", "kup5", "viol1"]].reset_index(drop=True)
+        tabs["T15_var_backtest"] = t15[["market", "windows", "variant", "viol5", "kup5", "chr5", "viol1", "kup1", "chr1"]].reset_index(drop=True)
         tabs["T16_vol_targeting"] = t15[["market", "windows", "variant", "vt_abs_log", "breach", "exposure"]].reset_index(drop=True)
 
     st_rows, po_rows = [], []
